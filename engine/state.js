@@ -98,6 +98,22 @@ const CIRCLET_CRIT_MAIN_STATS = {
   crit_damage: VC.CIRCLET_CRIT_DAMAGE_MAIN_STAT,
 };
 
+/* Max-level 5-star main stat values, applied when a piece's main stat is
+ * switched in the editor. Stored in the same units as the artifacts
+ * (fractions for PERCENT_STATS, raw numbers otherwise). */
+const MAIN_STAT_PRESETS = {
+  ...CIRCLET_CRIT_MAIN_STATS,
+  attack_percent: 0.466,
+  defense_percent: 0.583,
+  anemo_damage_bonus: 0.466,
+  pyro_damage_bonus: 0.466,
+  electro_damage_bonus: 0.466,
+  hydro_damage_bonus: 0.466,
+  geo_damage_bonus: 0.466,
+  elemental_mastery: 187,
+  energy_recharge: 51.8,
+};
+
 /* Every dataclass field that can hold a piece of a character's field time --
  * either the plain ``field_time`` most characters have, or a
  * ``field_time_base`` plus whichever conditional modifiers apply. */
@@ -365,6 +381,7 @@ export function uiConstants() {
     artifact_sets: Object.keys(VC.ARTIFACT_SETS),
     presets: [...VC.PRESET_TIERS],
     circlet_crit_main_stats: { ...CIRCLET_CRIT_MAIN_STATS },
+    main_stat_presets: { ...MAIN_STAT_PRESETS },
     characters: characterMetadata(),
     character_levels: [...VC.CHARACTER_LEVELS],
   };

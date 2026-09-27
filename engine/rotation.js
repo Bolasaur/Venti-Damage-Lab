@@ -197,7 +197,14 @@ export class VentiRotation {
     burstBuffs, burst2Buffs, slotBuffs, anemoResonanceActive, physicalResistance, swirlBonus, rotationLength, absorptionSource,
     anemoCharacterCount = 0) {
     const parsed = this.parse();
-    if (!parsed.skill_casts) throw new ValueError("Venti's rotation must contain an 'e' to activate his buffs");
+    // With no 'e' there's no activation hit. His burst snapshots activated
+    // stats only if an 'e' comes before his first 'q'; otherwise (no 'e', or
+    // 'q' first) its ticks resolve with the pre-activation stats the
+    // activation skill uses. Everything else (normals) counts as activated.
+    const hasActivation = parsed.skill_casts > 0;
+    const firstSkillIndex = parsed.token_order.indexOf('e');
+    const firstBurstIndex = parsed.token_order.indexOf('q');
+    const burstActivated = hasActivation && (firstBurstIndex === -1 || firstSkillIndex < firstBurstIndex);
     const effectiveSkillCasts = ventiEffectiveSkillCasts(parsed.skill_casts, anemoResonanceActive, venti.c2_enabled);
     const effectiveBurstCasts = ventiEffectiveBurstCasts(parsed.burst_casts);
     const w = venti.weaponStats();
@@ -230,7 +237,8 @@ export class VentiRotation {
 
     const firstSkillAttack = venti.finalAttack(settings, nicole, prune, bennett, artifactBuffs, false, false, anemoCharacterCount,
       activationBuffs.external_attack_percent, activationBuffs.nicole_uptime, activationBuffs.bennett_uptime) + ttdsBonus(activationTime);
-    const finalAttack = venti.finalAttack(settings, nicole, prune, bennett, artifactBuffs, true, pruneOnfieldActive(burstStart), anemoCharacterCount,
+    const finalAttack = venti.finalAttack(settings, nicole, prune, bennett, artifactBuffs, burstActivated,
+      burstActivated && pruneOnfieldActive(burstStart), anemoCharacterCount,
       burstBuffs.external_attack_percent, burstBuffs.nicole_uptime, burstBuffs.bennett_uptime) + ttdsBonus(burstStart);
 
     // Faruzan's C6 crit damage bonus is Anemo-only.
@@ -245,9 +253,9 @@ export class VentiRotation {
 
     const firstSkillCritStats = anemoCritStats(activationBuffs, false);
     const firstSkillCritAnemo = expectedCritMultiplier(...firstSkillCritStats);
-    const burstCritStats = anemoCritStats(burstBuffs, true);
+    const burstCritStats = anemoCritStats(burstBuffs, burstActivated);
     const critAnemoBurst = expectedCritMultiplier(...burstCritStats);
-    const burst2CritStats = otherCritStats(burst2Buffs, true);
+    const burst2CritStats = otherCritStats(burst2Buffs, burstActivated);
     const critOtherBurst = expectedCritMultiplier(...burst2CritStats);
 
     // Venti's own 50% hex_damage_bonus only turns on once his first skill has
@@ -287,9 +295,11 @@ export class VentiRotation {
 
     // ``burst2Buffs.resistance`` already has VV's shred baked in if it applies.
     const burst2ResistanceMultiplier = resistanceMultiplier(burst2Buffs.resistance);
-    const anemoBurstMult = (1 + hexBonus + nonHexBonus(burstBuffs) + anemoBonus(burstBuffs) + ventiBurstBonus + weaponBurstBonus + weaponSkillBonus)
+    const burstHexBonus = burstActivated ? hexBonus : 0;
+    const burstAnemoBonus = burstActivated ? anemoBonus(burstBuffs) : nonC4AnemoBonus(burstBuffs);
+    const anemoBurstMult = (1 + burstHexBonus + nonHexBonus(burstBuffs) + burstAnemoBonus + ventiBurstBonus + weaponBurstBonus + weaponSkillBonus)
       * critAnemoBurst * defense * resistanceMultiplier(burstBuffs.resistance);
-    const pyroBurstMult = (1 + hexBonus + nonHexBonus(burst2Buffs) + burst2Bonus + ventiBurstBonus + weaponBurstBonus + weaponSkillBonus)
+    const pyroBurstMult = (1 + burstHexBonus + nonHexBonus(burst2Buffs) + burst2Bonus + ventiBurstBonus + weaponBurstBonus + weaponSkillBonus)
       * critOtherBurst * defense * burst2ResistanceMultiplier;
     const firstSkillMultiplier = (1 + nonHexBonus(activationBuffs) + nonC4AnemoBonus(activationBuffs) + goldenTroupeSkillBonus + weaponSkillBonus)
       * firstSkillCritAnemo * defense * resistanceMultiplier(activationBuffs.resistance);
@@ -387,8 +397,9 @@ export class VentiRotation {
     // Venti's burst fires as two independent, parallel hit-streams, both
     // snapshotted at ``burstStart`` and spread evenly across its own 10s
     // window. Every swirl hits alongside its own burst-2 counterpart.
-    const activationSkillDamage = skillMv * c2Mult * firstSkillAttack * firstSkillMultiplier;
-    const activationHits = [new Hit('Venti', 'activation skill', activationTime, activationSkillDamage, ...firstSkillCritStats)];
+    const activationSkillDamage = hasActivation ? skillMv * c2Mult * firstSkillAttack * firstSkillMultiplier : 0.0;
+    const activationHits = hasActivation
+      ? [new Hit('Venti', 'activation skill', activationTime, activationSkillDamage, ...firstSkillCritStats)] : [];
     const skillAfterActivationDamage = pySumMap(skillHits, (hit) => hit.damage);
 
     const burst1HitsCount = effectiveBurstCasts * this.burst_first_hits_per_cast;
@@ -427,7 +438,7 @@ export class VentiRotation {
     result.set(hitSuffix('swirl', swirlHitsCount), swirlTotal);
     // "skill" (the UI's own fold of "activation skill" + "skill after
     // activation") mixes two different per-hit values, so it gets a breakdown.
-    const skillBreakdown = new Map([['Activation', [1, activationSkillDamage]]]);
+    const skillBreakdown = new Map(hasActivation ? [['Activation', [1, activationSkillDamage]]] : []);
     if (skillHits.length) skillBreakdown.set('After activation', [skillHits.length, skillAfterActivationDamage]);
     const breakdowns = new Map([['normals', normalsBreakdown], ['C1 normals', c1NormalsBreakdown], ['skill', skillBreakdown]]);
     // Only present at all while Venti actually wields Skyward Harp.

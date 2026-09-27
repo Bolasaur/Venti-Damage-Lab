@@ -848,8 +848,46 @@ button { font: inherit; cursor: pointer; }
 }
 
 @media (max-width: 720px) {
-  .headline { gap: 16px; }
-  .headline-stat--hero strong { font-size: 1.45rem; }
+  /* The sticky banner eats the screen on a phone: keep it to one row
+   * (brand + DPS) and show the secondary stats, resonances and character
+   * chips only on the home view. */
+  .banner { padding: 9px 15px 8px; }
+  .banner-top { flex-wrap: nowrap; gap: 12px; }
+  .brand { min-width: 0; gap: 9px; }
+  .brand > div { min-width: 0; }
+  .brand .eyebrow { display: none; }
+  .brand h1 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 9px; flex: none; }
+  .banner-right { gap: 6px; }
+  .headline { gap: 14px; justify-content: flex-end; }
+  .headline-stat--hero strong { font-size: 1.35rem; }
+
+  .banner:not([data-view="home"]) .headline-stat:not(.headline-stat--hero),
+  .banner:not([data-view="home"]) .resonance-lights,
+  .banner:not([data-view="home"]) .chips { display: none; }
+
+  /* home view: the full banner stays, but chips scroll sideways instead of wrapping */
+  .banner[data-view="home"] { position: static; }
+  .banner[data-view="home"] .banner-top { flex-wrap: wrap; }
+  .banner[data-view="home"] .banner-right { width: 100%; align-items: stretch; }
+  .banner[data-view="home"] .headline {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+    align-items: end;
+  }
+  .banner[data-view="home"] .resonance-lights { justify-content: flex-start; }
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-top: 9px;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; }
+
   .view { padding: 15px; }
   .bt-row { flex-direction: column; }
   .bt-labels { flex: none; width: 100%; }

@@ -128,6 +128,7 @@ function conPip(level) {
 
 function renderBanner() {
   $('#bannerTitle').textContent = VIEW_TITLES[VIEW];
+  $('#banner').dataset.view = VIEW;   // mobile CSS trims the banner off the home view
   if (!RESULT) return;
 
   $('#statDps').textContent = num(RESULT.dps);
@@ -472,9 +473,7 @@ function renderEditor() {
   if (info.has_burst_toggle) {
     toggles.appendChild(switchRow(
       'Burst enabled',
-      build.burst_enabled
-        ? ''
-        : 'Off: field time drops, and Venti loses the q3 projection ticks her burst grants.',
+      '',
       build.burst_enabled,
       (value) => { build.burst_enabled = value; renderEditor(); recalc(); },
     ));
@@ -643,6 +642,8 @@ function renderPiece(build, piece, name) {
   statSelect.value = artifact.main_stat.stat;
   statSelect.addEventListener('change', () => {
     artifact.main_stat.stat = statSelect.value;
+    const preset = CONST.main_stat_presets[statSelect.value];
+    if (preset !== undefined) artifact.main_stat.value = preset;
     renderEditor();   // the circlet's substat slots depend on its main stat
     recalc();
   });
@@ -1390,7 +1391,8 @@ function renderDebug() {
     ['Harp procs', String(r.harp_trigger_count)],
   ], [['Quantity'], ['Value', 'numeric']]),
   'The first e is the activation cast: it deals damage before Venti’s 4pc set and Prune’s '
-  + 'Hex/C6 buffs are live, then enables them for the rest of the rotation. C1 arrows are each worth '
+  + 'Hex/C6 buffs are live, then enables them for the rest of the rotation. If no e comes before '
+  + 'the first q, the burst uses those pre-activation stats; everything else counts as activated. C1 arrows are each worth '
   + '20% of their base arrow.'));
 }
 
