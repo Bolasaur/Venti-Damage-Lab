@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venti Damage Lab</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Banner: mounted once, outside the swapped view, so it persists across
+     every menu and repaints on every change. -->
+<header class="banner" id="banner">
+  <div class="banner-top">
+    <div class="brand">
+      <span class="brand-mark">V</span>
+      <div>
+        <p class="eyebrow">Venti Damage Lab</p>
+        <h1 id="bannerTitle">Team Overview</h1>
+      </div>
+    </div>
+
+    <div class="banner-right">
+      <div class="headline">
+        <div class="headline-stat headline-stat--hero">
+          <span class="eyebrow">DPS</span>
+          <strong id="statDps">&mdash;</strong>
+        </div>
+        <div class="headline-stat">
+          <span class="eyebrow">Rotation damage</span>
+          <strong id="statTotal">&mdash;</strong>
+        </div>
+        <div class="headline-stat">
+          <span class="eyebrow">Rotation length</span>
+          <strong id="statLength">&mdash;</strong>
+        </div>
+        <div class="headline-stat">
+          <span class="eyebrow">Team cost</span>
+          <strong id="statCost">&mdash;</strong>
+        </div>
+      </div>
+
+      <div class="resonance-lights">
+        <span class="resonance-light resonance-light--anemo" id="anemoResonanceLight"><span class="dot"></span>Anemo Resonance</span>
+        <span class="resonance-light resonance-light--pyro" id="pyroResonanceLight"><span class="dot"></span>Pyro Resonance</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="chips" id="bannerChips"></div>
+  <p class="banner-error" id="bannerError" hidden></p>
+</header>
+
+<main id="view" class="view"></main>
+
+<!-- Optimizer toast: lives outside #view so a run started on the Cost
+     Scamming menu can still report back after the user navigates away. -->
+<div class="optimize-toast" id="optimizeToast" hidden>
+  <div class="optimize-toast-icon" id="optimizeToastIcon"></div>
+  <div class="optimize-toast-body">
+    <strong id="optimizeToastTitle">Optimization complete</strong>
+    <span id="optimizeToastSubtitle"></span>
+  </div>
+  <button class="optimize-toast-view" id="optimizeToastView">View</button>
+  <button class="optimize-toast-close" id="optimizeToastClose" aria-label="Dismiss">&times;</button>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- View templates                                                      -->
+<!-- ------------------------------------------------------------------ -->
+
+<template id="tpl-home">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Team</p>
+        <h2>Line-up</h2>
+      </div>
+      <span class="hint">Slot decides buff uptime.</span>
+    </div>
+    <div class="team-grid">
+      <div class="slot slot--locked">
+        <span class="slot-label">Slot 1</span>
+        <div class="slot-locked-name">Venti</div>
+      </div>
+      <label class="slot"><span class="slot-label">Slot 2</span><select data-team-slot="0"></select></label>
+      <label class="slot"><span class="slot-label">Slot 3</span><select data-team-slot="1"></select></label>
+      <label class="slot"><span class="slot-label">Slot 4</span><select data-team-slot="2"></select></label>
+    </div>
+  </section>
+
+  <nav class="menu-buttons">
+    <button class="menu-button" data-goto="characters">
+      <strong>Edit Characters</strong>
+      <span>Stats, constellations, weapons, artifacts</span>
+    </button>
+    <button class="menu-button" data-goto="rotation">
+      <strong>Edit Rotation</strong>
+      <span>Venti&rsquo;s notation, timings and enemy</span>
+    </button>
+    <button class="menu-button" data-goto="stats">
+      <strong>Damage Stats</strong>
+      <span>Every damage source and the maths behind it</span>
+    </button>
+    <button class="menu-button" data-goto="costscaling">
+      <strong>Cost Scamming</strong>
+      <span>Find the strongest team under a cost cap</span>
+    </button>
+  </nav>
+</template>
+
+<template id="tpl-characters">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Roster</p>
+        <h2>Pick a character to edit</h2>
+      </div>
+      <button class="ghost-button" data-goto="home">&larr; Home</button>
+    </div>
+    <div class="roster-rail" id="rosterRail"></div>
+  </section>
+  <div id="characterEditor"></div>
+</template>
+
+<template id="tpl-rotation">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Rotation</p>
+        <h2>Venti&rsquo;s rotation</h2>
+      </div>
+      <button class="ghost-button" data-goto="home">&larr; Home</button>
+    </div>
+    <div class="rotation-layout">
+      <div>
+        <label class="field-block">
+          <span>Notation</span>
+          <textarea id="rotationInput" rows="3" spellcheck="false"></textarea>
+        </label>
+        <p class="inline-error" id="rotationError" hidden></p>
+        <p class="note" id="rotationSkillCastNote" hidden></p>
+        <div class="notation-key">
+          <h3>Notation key</h3>
+          <dl>
+            <dt>e</dt><dd>Elemental skill cast. The <em>first</em> <code>e</code> is the activation: it deals damage before Venti&rsquo;s 4pc set and Prune&rsquo;s Hex/C6 buffs apply, then switches them on for everything after it. A rotation must contain at least one.</dd>
+            <dt>q</dt><dd>Elemental burst cast. Each one adds its burst 1 / burst 2 hits, its swirls, and Nicole&rsquo;s q3 projection ticks.</dd>
+            <dt>n1 &ndash; n6</dt><dd>A normal-attack string played through that hit. <code>n6</code> means N1&rarr;N6, so it counts every earlier normal too. N1 and N4 each fire two arrows.</dd>
+            <dt>d</dt><dd>Dash. Parsed for readability; it deals no damage in this model.</dd>
+          </dl>
+          <p class="hint">Whitespace is ignored &mdash; <code>eq n5d n2e</code> and <code>eqn5dn2e</code> are the same.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Rotation</p>
+        <h2>Character details <span class="hint">field time sets rotation length</span></h2>
+      </div>
+    </div>
+    <div id="fieldTimeTable" class="character-detail-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Target</p>
+        <h2>Enemy</h2>
+      </div>
+    </div>
+    <div class="table-wrap"><table class="data-table" id="enemyTable"></table></div>
+  </section>
+
+</template>
+
+<template id="tpl-stats">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Debug</p>
+        <h2>Damage sources</h2>
+      </div>
+      <button class="ghost-button" data-goto="home">&larr; Home</button>
+    </div>
+    <!-- Clarification, kept for reference but no longer shown in the UI:
+    Reaction damage other than swirls (Vaporize, Melt, etc.) is not modelled here -- its real timing
+    is too ping- and framerate-dependent to reproduce consistently, so only swirl damage is counted. -->
+    <div id="sourceList"></div>
+  </section>
+  <div id="debugPanels"></div>
+</template>
+
+<template id="tpl-costscaling">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Optimizer</p>
+        <h2>Cost Scamming</h2>
+      </div>
+      <button class="ghost-button" data-goto="home">&larr; Home</button>
+    </div>
+    <div class="grid-2" id="costScalingForm"></div>
+    <button class="menu-button" id="costScalingCalculate" style="margin-top:14px;">
+      <strong>Calculate</strong>
+      <span>Run the optimizer with these settings</span>
+    </button>
+    <p class="inline-error" id="costScalingError" hidden></p>
+  </section>
+  <section class="panel" id="costScalingResultPanel" hidden>
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Result</p>
+        <h2>Best team found</h2>
+      </div>
+    </div>
+    <div id="costScalingResult"></div>
+  </section>
+</template>
+
+<script src="app.js"></script>
+</body>
+</html>
