@@ -124,7 +124,8 @@ export class Team {
   rotationLength() {
     return effectiveRotationLength(pySumMap(this.member_names, (name) => this.character(name).field_time),
       this.member_names.includes('Faruzan'),
-      this.member_names.includes('Prune') || this.member_names.includes('Durin'));
+      this.member_names.includes('Prune') || this.member_names.includes('Durin'),
+      this.anemoResonanceActive());
   }
 
   _validateSlots() {

@@ -34,7 +34,8 @@ export class RotationTimeline {
       cursor += fieldTime.get(name);
     }
     return new RotationTimeline(order, fieldTime, arcStart, effectiveRotationLength(
-      cursor, memberNames.includes('Faruzan'), memberNames.includes('Prune') || memberNames.includes('Durin')));
+      cursor, memberNames.includes('Faruzan'), memberNames.includes('Prune') || memberNames.includes('Durin'),
+      order.filter((name) => characterLookup(name).element === 'Anemo').length >= 2));
   }
 
   /* A copy with one extra named recipient registered at an arbitrary

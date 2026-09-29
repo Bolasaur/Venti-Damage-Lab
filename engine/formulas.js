@@ -126,10 +126,14 @@ export function slotOf(character) {
 export const MINIMUM_ROTATION_LENGTH = 16.0;
 export const MINIMUM_ROTATION_LENGTH_WITH_FARUZAN = 20.0;
 export const MINIMUM_ROTATION_LENGTH_WITH_PRUNE_OR_DURIN = 18.0;
+// Anemo Resonance's 5% CD reduction cuts whichever minimum applies (20s -> 19s with Faruzan).
+export const ANEMO_RESONANCE_MINIMUM_ROTATION_REDUCTION = 0.05;
 
-export function effectiveRotationLength(rawFieldTimeSum, faruzanPresent = false, pruneOrDurinPresent = false) {
+export function effectiveRotationLength(rawFieldTimeSum, faruzanPresent = false, pruneOrDurinPresent = false,
+  anemoResonanceActive = false) {
   let minimum = MINIMUM_ROTATION_LENGTH;
   if (faruzanPresent) minimum = pyMax(minimum, MINIMUM_ROTATION_LENGTH_WITH_FARUZAN);
   if (pruneOrDurinPresent) minimum = pyMax(minimum, MINIMUM_ROTATION_LENGTH_WITH_PRUNE_OR_DURIN);
+  if (anemoResonanceActive) minimum *= 1 - ANEMO_RESONANCE_MINIMUM_ROTATION_REDUCTION;
   return pyMax(minimum, rawFieldTimeSum);
 }
