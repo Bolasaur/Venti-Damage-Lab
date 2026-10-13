@@ -253,13 +253,13 @@ export class Team {
 
     // Off-field ticking abilities: start/cadence/count per ability, each tick
     // resolving buffs at its own real instant. Faruzan's C6 triggers
-    // alongside VENTI's arc start.
+    // alongside VENTI's arc start, but she isn't Hex, so never gets Angelos.
     const durinFrontSeries = arcEnd.has('Durin') ? hitSeries('Pyro', arcEnd.get('Durin'), 1.0, 10, 0.5) : [];
     const durinBackSeries = arcEnd.has('Durin') ? hitSeries('Pyro', arcEnd.get('Durin') + 10.0, 1.0, 10, 0.5) : [];
     const monaSkillSeries = arcEnd.has('Mona') ? hitSeries('Hydro', arcEnd.get('Mona'), 2.0, 4, 0.5) : [];
     const pruneAnemoSeries = arcEnd.has('Prune') ? hitSeries('Anemo', arcEnd.get('Prune'), 2.0, pruneAnemoTickCount, 0.5, true) : [];
     const prunePyroSeries = arcEnd.has('Prune') ? hitSeries(absorbedBurstElement, arcEnd.get('Prune'), 2.0, prunePyroTickCount, 0.5, true) : [];
-    const faruzanC6Series = hitSeries('Anemo', timeline.arc_start.get('Venti'), 3.0, 6, 1.0);
+    const faruzanC6Series = hitSeries('Anemo', timeline.arc_start.get('Venti'), 3.0, 6, 0);
 
     // Venti's own on-field hit sequence is timed directly off his notation,
     // spread evenly across (field_time - 2) seconds, starting 2s into his

@@ -690,7 +690,8 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
   // present); her Hydro-ally EM stays teamwide/full uptime.
   const presentElements = new Set(present.filter((c) => c.team_buffs_enabled ?? true).map((c) => c.element));
   const fischlPyroDuration = buffs.fischl_pyro_full_uptime ? null : VC.FISCHL_PYRO_ATTACK_BUFF_DURATION;
-  add('Fischl', 'Pyro-ally team ATK% (kit passive)', buffs.fischl_pyro_attack_percent, 'percent', fischlPyroDuration,
+  const [fischlPyroFraction] = realUptimeOf('Fischl', fischlPyroDuration);
+  add('Fischl', 'Pyro-ally team ATK% (kit passive)', buffs.fischl_pyro_attack_percent * fischlPyroFraction, 'percent', fischlPyroDuration,
     buffs.fischl_pyro_full_uptime ? 'full uptime -- Durin is on the team' : null);
   add('Fischl', 'Hydro-ally team EM (kit passive)', fischl.teamElementalMasteryBonus(presentElements), 'flat', null);
 
@@ -720,7 +721,7 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
     const wielder = className(character);
     const [elegyFraction] = realUptimeOf(wielder, VC.ELEGY_BUFF_DURATION);
     add(wielder, 'Weapon team ATK%', (weapon.team_attack_percent ?? 0) * valueScale * elegyFraction, 'percent', VC.ELEGY_BUFF_DURATION);
-    add(wielder, 'Weapon team ATK% (teammates only)', weapon.team_attack_percent_others ?? 0, 'percent', null);
+    add(wielder, 'Weapon team ATK% (teammates only)', (weapon.team_attack_percent_others ?? 0) * valueScale, 'percent', null);
     add(wielder, 'Weapon team EM', (weapon.team_elemental_mastery ?? 0) * valueScale * elegyFraction, 'flat', VC.ELEGY_BUFF_DURATION);
   }
 
