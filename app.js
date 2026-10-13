@@ -1334,7 +1334,8 @@ function renderDebug() {
       [['Source'], ['Buff'], ['Value', 'numeric'], ['Real uptime', 'numeric']]),
     `One independent row per source and per buff -- nothing from ${name}'s own artifacts, weapon, or `
     + 'constellations is listed here, only what a teammate’s kit or a team-wide artifact set effect actually '
-    + `grants them. "Real uptime" is the damage-weighted fraction of ${name}'s own REAL, individually-timestamped `
+    + 'grants them. "Value" is the full buff while it’s up (for one that varies hit to hit, its damage-weighted '
+    + `average while up), not scaled down by uptime. "Real uptime" is the damage-weighted fraction of ${name}'s own REAL, individually-timestamped `
     + 'hits this rotation where the buff is genuinely active at that hit’s own instant -- e.g. "73% (16 of 22 real '
     + 'hits)" means 16 of that character’s 22 actual hits landed while it was up, weighted by how much damage each '
     + 'one did. This is a TIMING check only, not element-aware, so an element-locked bonus (Faruzan’s Anemo-only '

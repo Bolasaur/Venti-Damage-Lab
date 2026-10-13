@@ -196,6 +196,8 @@ export class Team {
     const sharedBonusAt = (instant, angelosTier = 1.0, excludePruneBonus = false) => {
       const monaBonus = this.mona.teamDamageBonus(uptimeAt('Mona', Mona.BUFF_DURATION, instant));
       const patrolSong = this.albedo.patrolSongTeamDamageBonus() * uptimeAt('Albedo', Albedo.PATROL_SONG_BUFF_DURATION, instant);
+      // Angelos: full to whoever is on-field, half to Hex off-fielders, none to
+      // non-Hex off-fielders (Faruzan/Bennett) -- ``angelosTier`` per hit.
       const angelos = angelosRaw * uptimeAt('Nicole', ANGELOS_BUFF_DURATION, instant, false) * angelosTier;
       // Prune's dynamic team DMG bonus reaches every present teammate through
       // this one shared resolver -- ``excludePruneBonus`` is set only for
@@ -292,7 +294,7 @@ export class Team {
     // the rest of the rotation after he leaves the field.
     const albedoTickCount = arcEnd.has('Albedo') ? pyInt(pyFloorDiv(this.rotationLength(), 2)) : 0;
     const albedoSkillTimes = tickTimes(arcEnd.get('Albedo') ?? 0.0, 2.0, albedoTickCount);
-    const albedoSnap = buffsAt('Geo', (timeline.arc_start.get('Albedo') ?? 0.0) + 1, 0.5);
+    const albedoSnap = buffsAt('Geo', (timeline.arc_start.get('Albedo') ?? 0.0) + 1, 1.0);
 
     // Only the characters actually on the team have their personal damage computed.
     const damageByName = {
@@ -305,26 +307,26 @@ export class Team {
         ventiSlotSeries,
         anemoResonanceActive, physicalResistance, swirlBonus, this.rotationLength(), absorptionSource, anemoCharacterCount),
       Nicole: () => this.nicole.damage(settings, this.enemy, this.bennett, this.durin, artifactBuffs,
-        buffsAt('Pyro', timeline.arc_start.get('Nicole') + 1, 0.5), buffsAt('Pyro', arcEnd.get('Nicole'), 0.5),
+        buffsAt('Pyro', timeline.arc_start.get('Nicole') + 1, 1.0), buffsAt('Pyro', arcEnd.get('Nicole'), 1.0),
         ...onFieldTimes('Nicole')),
       Durin: () => this.durin.damage(settings, this.enemy, this.nicole, this.bennett, artifactBuffs,
-        buffsAt('Pyro', timeline.arc_start.get('Durin') + 1, 0.5), buffsAt('Pyro', arcEnd.get('Durin'), 0.5),
+        buffsAt('Pyro', timeline.arc_start.get('Durin') + 1, 1.0), buffsAt('Pyro', arcEnd.get('Durin'), 1.0),
         durinFrontSeries, durinBackSeries, ...onFieldTimes('Durin')),
       Prune: () => this.prune.damage(settings, this.enemy, this.nicole, this.bennett, this.faruzan, this.durin, artifactBuffs, timeline,
-        buffsAt('Anemo', timeline.arc_start.get('Prune') + 1, 0.5, true), buffsAt('Anemo', arcEnd.get('Prune'), 0.5, true),
+        buffsAt('Anemo', timeline.arc_start.get('Prune') + 1, 1.0, true), buffsAt('Anemo', arcEnd.get('Prune'), 1.0, true),
         swirlBonus, absorptionSource, pruneAnemoSeries, prunePyroSeries, ...onFieldTimes('Prune')),
       Bennett: () => this.bennett.damage(settings, this.enemy, this.nicole, this.durin, artifactBuffs,
-        buffsAt('Pyro', timeline.arc_start.get('Bennett') + 1, 0), buffsAt('Pyro', arcEnd.get('Bennett'), 0),
+        buffsAt('Pyro', timeline.arc_start.get('Bennett') + 1, 1.0), buffsAt('Pyro', arcEnd.get('Bennett'), 1.0),
         ...onFieldTimes('Bennett')),
       Faruzan: () => this.faruzan.damage(settings, this.enemy, this.nicole, this.bennett, this.durin, artifactBuffs,
-        buffsAt('Anemo', timeline.arc_start.get('Faruzan') + 1, 0), buffsAt('Anemo', arcEnd.get('Faruzan'), 0),
+        buffsAt('Anemo', timeline.arc_start.get('Faruzan') + 1, 1.0), buffsAt('Anemo', arcEnd.get('Faruzan'), 1.0),
         swirlBonus, absorptionSource, faruzanC6Series, ...onFieldTimes('Faruzan')),
       Fischl: () => this.fischl.damage(settings, this.enemy, this.nicole, this.bennett, this.durin, artifactBuffs,
-        buffsAt('Electro', timeline.arc_start.get('Fischl') + 1, 0.5), physicalResistance,
+        buffsAt('Electro', timeline.arc_start.get('Fischl') + 1, 1.0), physicalResistance,
         fischlPrimaryTimes, fischlSecondaryTimes, fischlTertiaryTimes,
         ...onFieldTimes('Fischl')),
       Mona: () => this.mona.damage(settings, this.enemy, this.nicole, this.bennett, this.durin, artifactBuffs,
-        buffsAt('Hydro', arcEnd.get('Mona'), 0.5), monaSkillSeries,
+        buffsAt('Hydro', arcEnd.get('Mona'), 1.0), monaSkillSeries,
         onFieldTimes('Mona')[1]),
       Albedo: () => this.albedo.damage(settings, this.enemy, this.nicole, this.bennett, this.durin, artifactBuffs,
         albedoSnap.shared_bonus, albedoSnap.resistance, albedoSnap.crit_rate_bonus, albedoSnap.crit_damage_bonus,

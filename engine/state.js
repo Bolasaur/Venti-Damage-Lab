@@ -544,6 +544,15 @@ const sumDamage = (hits) => pySumMap(hits, (h) => h.damage);
  * ``recipient``'s own timestamped hits where that buff is active at that
  * hit's own instant. This is a TIMING check only -- it doesn't know which
  * element any specific hit is. */
+/* Each character's off-field hits, for Angelos' on-field/off-field split --
+ * mirrors the ``angelosTier`` each hit series gets in ``Team.damageResults``. */
+const ANGELOS_OFF_FIELD_ABILITIES = {
+  Durin: new Set(['burst front', 'burst back']),
+  Prune: new Set(['burst 2', 'burst 3']),
+  Mona: new Set(['skill']),
+  Faruzan: new Set(['c6 hit']),
+};
+
 function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, present, absorptionActive,
   ttdsWielder, ttdsFullDelta, resonanceActive, absorbedElement = null) {
   const { nicole, durin, prune, bennett, faruzan, fischl, mona, albedo } = team;
@@ -573,6 +582,26 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
     rows.push(row);
   };
 
+  // A row decided hit by hit (``valueAt`` is 0 while the buff is down) rather
+  // than by a plain recast window. ``value`` is what it gives while up -- its
+  // damage-weighted average across those hits when it varies, else ``idle``
+  // when it's never up -- and ``uptime`` the damage-weighted share it's up for.
+  const addPerHit = (source, buff, kind, hitSet, valueAt, note = null, idle = 0.0) => {
+    if (!hitSet.length) return;
+    const totalDamage = sumDamage(hitSet);
+    const active = hitSet.filter((h) => valueAt(h));
+    const activeDamage = sumDamage(active);
+    const value = activeDamage ? div(pySumMap(active, (h) => h.damage * valueAt(h)), activeDamage) : idle;
+    if (!pyTruthy(value)) return;
+    const row = {
+      source, buff, value, kind,
+      uptime: totalDamage ? div(activeDamage, totalDamage) : 0.0,
+      hit_coverage: `${active.length} of ${hitSet.length} real hits`,
+    };
+    if (note) row.note = note;
+    rows.push(row);
+  };
+
   const elementNote = hits.length ? 'timing only, not element-aware -- see this panel\'s own note above' : null;
 
   // -- Team composition / resonance
@@ -580,134 +609,100 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
 
   // -- Nicole (20s window) -- her own kit buffs are still (re)cast at the
   // START of her own arc, hence ``castAtSwapOut = false`` on every row.
-  const [nicoleFraction] = realUptimeOf('Nicole', VC.Nicole.BUFF_DURATION, hits, false);
-  add('Nicole', 'Team flat ATK', nicole.teamFlatAttack(resolvedSettings, buffs, nicoleFraction), 'flat', VC.Nicole.BUFF_DURATION,
+  add('Nicole', 'Team flat ATK', nicole.teamFlatAttack(resolvedSettings, buffs, 1.0), 'flat', VC.Nicole.BUFF_DURATION,
     null, hits, false);
-  const [nicoleOnfieldFraction] = realUptimeOf('Nicole', VC.Nicole.BUFF_DURATION, onFieldHits, false);
-  add('Nicole', 'On-field flat ATK', nicole.skillOnFieldAttack(nicoleOnfieldFraction), 'flat', VC.Nicole.BUFF_DURATION,
+  add('Nicole', 'On-field flat ATK', nicole.skillOnFieldAttack(1.0), 'flat', VC.Nicole.BUFF_DURATION,
     offFieldHits.length ? 'only her genuinely on-field hits -- never his/her own off-field ticks, which only get this via the row below at C6' : null,
     onFieldHits, false);
   if (offFieldHits.length) {
-    const [nicoleOfffieldFraction] = realUptimeOf('Nicole', VC.Nicole.BUFF_DURATION, offFieldHits, false);
-    add('Nicole', 'Team-wide flat ATK (C6 only)', nicole.teamWideFlatAttack(nicoleOfffieldFraction), 'flat', VC.Nicole.BUFF_DURATION,
+    add('Nicole', 'Team-wide flat ATK (C6 only)', nicole.teamWideFlatAttack(1.0), 'flat', VC.Nicole.BUFF_DURATION,
       'only reaches off-field ticks once Nicole\'s C6 widens it -- zero without it', offFieldHits, false);
   }
-  const angelosTier = recipient === 'Venti' ? 1.0 : ((recipient === 'Bennett' || recipient === 'Faruzan') ? 0.0 : 0.5);
-  add('Nicole', 'Weapon (Angelos) team DMG bonus',
-    (nicole.team_buffs_enabled ? nicole.weaponStats().team_damage_bonus : 0) * nicoleFraction * angelosTier,
-    'percent', VC.Nicole.BUFF_DURATION, 'full value to Venti, half to most others, none to Faruzan/Bennett', hits, false);
+  // Angelos -- full to on-field hits, half to a Hex character's off-field
+  // hits, none to Faruzan's/Bennett's (not Hex). Fischl and Albedo snapshot
+  // their whole kit on-field at their skill cast, so it's all on-field.
+  const angelosRaw = nicole.team_buffs_enabled ? nicole.weaponStats().team_damage_bonus : 0;
+  const angelosOffFieldSet = ANGELOS_OFF_FIELD_ABILITIES[recipient] ?? new Set();
+  const angelosOnFieldHits = hits.filter((h) => !angelosOffFieldSet.has(h.ability));
+  const angelosOffFieldHits = hits.filter((h) => angelosOffFieldSet.has(h.ability));
+  add('Nicole', 'Weapon (Angelos) team DMG bonus (on-field)', angelosRaw, 'percent', VC.ANGELOS_BUFF_DURATION,
+    angelosOffFieldHits.length ? 'only genuinely on-field hits -- off-field ones are the row below' : null, angelosOnFieldHits, false);
+  if (angelosOffFieldHits.length && recipient !== 'Faruzan' && recipient !== 'Bennett') {
+    add('Nicole', 'Weapon (Angelos) team DMG bonus (off-field, half)', angelosRaw * 0.5, 'percent', VC.ANGELOS_BUFF_DURATION,
+      'half value to a Hex character\'s off-field hits', angelosOffFieldHits, false);
+  }
 
   // -- Durin's C2 (full uptime, no real window)
   add('Durin', 'C2 Pyro/Anemo DMG bonus', durin.pyroAnemoDamageBonus(), 'percent', null);
 
   // -- Prune -- her Hex-derived onfield buffs to VENTI are gated on his own
   // presence (anchored to his arc, with the shortened effective duration), so
-  // these two rows are built by hand.
-  if (recipient === 'Venti' && hits.length && prune.team_buffs_enabled) {
-    const ventiTotalDamage = sumDamage(hits);
-    if (ventiTotalDamage) {
-      const pruneAtkBuffActiveAt = (instant) => absorptionActive && timeline.activeAt('Venti', prune.atkBuffDuration(timeline), instant, false);
-
-      const activeCount = hits.filter((h) => pruneAtkBuffActiveAt(h.time)).length;
-      const atkPctAvg = div(pySumMap(hits, (h) => h.damage * (pruneAtkBuffActiveAt(h.time) ? prune.hex_onfield_attack_percent : 0)), ventiTotalDamage);
-      rows.push({
-        source: 'Prune', buff: 'Hex on-field ATK%', value: atkPctAvg, kind: 'percent',
-        uptime: prune.hex_onfield_attack_percent ? div(atkPctAvg, prune.hex_onfield_attack_percent) : 0.0,
-        hit_coverage: `${activeCount} of ${hits.length} real hits`,
-        note: 'only up while Venti is genuinely on field -- damage-weighted average across his real hits',
-      });
-      if (prune.c6_enabled) {
-        const c6Avg = div(pySumMap(hits, (h) => h.damage * (pruneAtkBuffActiveAt(h.time) ? prune.c6_flat_attack : 0)), ventiTotalDamage);
-        rows.push({
-          source: 'Prune', buff: 'C6 flat ATK', value: c6Avg, kind: 'flat',
-          uptime: prune.c6_flat_attack ? div(c6Avg, prune.c6_flat_attack) : 0.0,
-          hit_coverage: `${activeCount} of ${hits.length} real hits`,
-          note: 'only up while Venti is genuinely on field -- damage-weighted average across his real hits',
-        });
-      }
+  // these two rows are decided hit by hit.
+  if (recipient === 'Venti' && prune.team_buffs_enabled) {
+    const pruneAtkBuffActiveAt = (instant) => absorptionActive && timeline.activeAt('Venti', prune.atkBuffDuration(timeline), instant, false);
+    const onfieldNote = 'only up while Venti is genuinely on field';
+    addPerHit('Prune', 'Hex on-field ATK%', 'percent', hits,
+      (h) => (pruneAtkBuffActiveAt(h.time) ? prune.hex_onfield_attack_percent : 0), onfieldNote, prune.hex_onfield_attack_percent);
+    if (prune.c6_enabled) {
+      addPerHit('Prune', 'C6 flat ATK', 'flat', hits,
+        (h) => (pruneAtkBuffActiveAt(h.time) ? prune.c6_flat_attack : 0), onfieldNote, prune.c6_flat_attack);
     }
   }
   if (recipient !== 'Prune') {
     // Genuinely dynamic -- reflects her own attack AT EACH of the recipient's
-    // own real hits. The VALUE itself is the damage-weighted real average.
-    const pruneBonusHits = hits.map((h) => [h.damage, prune.teamDamageBonusAt(resolvedSettings, nicole, buffs, absorptionActive, timeline, h.time)]);
-    const pruneBonusTotalDamage = pySumMap(pruneBonusHits, ([d]) => d);
-    const pruneBonusAvg = pruneBonusTotalDamage ? div(pySumMap(pruneBonusHits, ([d, v]) => d * v), pruneBonusTotalDamage) : 0.0;
-    add('Prune', 'Team DMG bonus (damage-weighted average across their real hits)', pruneBonusAvg, 'percent', null);
+    // own real hits, so the value is its damage-weighted average while up.
+    addPerHit('Prune', 'Team DMG bonus', 'percent', hits,
+      (h) => prune.teamDamageBonusAt(resolvedSettings, nicole, buffs, absorptionActive, timeline, h.time),
+      'scales with her own ATK at each hit -- damage-weighted average while up');
   }
 
   // -- Prune's OWN Hex self-buffs -- the one exception to the "never buffs
   // itself" rule, since these are exactly the mechanics worth surfacing.
-  if (recipient === 'Prune' && hits.length && timeline.field_time.has('Prune')) {
-    const totalDamage = sumDamage(hits);
-    if (totalDamage) {
-      const pruneTickStart = timeline.arc_start.get('Prune') + timeline.field_time.get('Prune');
-
-      const hexActiveAt = (instant) => absorptionActive && timeline.activeAt('Venti', prune.atkBuffDuration(timeline), instant, false);
-
-      const hexCount = hits.filter((h) => hexActiveAt(h.time)).length;
-      const hexAvg = div(pySumMap(hits, (h) => h.damage * (hexActiveAt(h.time) ? prune.hex_attack_percent : 0)), totalDamage);
-      const elapsedValues = hits.map((h) => [h.damage, pyMod(h.time - pruneTickStart, timeline.period)]);
-      const c2Avg = absorptionActive ? div(pySumMap(elapsedValues, ([d, e]) => d * prune.c2AttackPercentAt(e)), totalDamage) : 0.0;
-      rows.push({
-        source: 'Prune', buff: 'Hex self ATK% (60% base)', value: hexAvg, kind: 'percent',
-        uptime: prune.hex_attack_percent ? div(hexAvg, prune.hex_attack_percent) : 0.0,
-        hit_coverage: `${hexCount} of ${hits.length} real hits`,
-        note: 'only up while Venti\'s own field-time window is active (see the Hex on-field rows in his own panel) -- damage-weighted average across her real hits, not the flat 60% max',
-      });
-      rows.push({
-        source: 'Prune', buff: 'C2 self ATK ramp (20% -> 40%)', value: c2Avg, kind: 'percent',
-        uptime: 1.0, hit_coverage: `${hits.length} of ${hits.length} real hits`,
-        note: 'ramps 20% -> 30% -> 40% over the 4s after her Hex ticks begin -- damage-weighted average across her real hits, not the flat 40% max',
-      });
-      if (prune.team_buffs_enabled && prune.c6_enabled) {
-        const c6Avg = div(pySumMap(hits, (h) => h.damage * (hexActiveAt(h.time) ? prune.c6_flat_attack : 0)), totalDamage);
-        rows.push({
-          source: 'Prune', buff: 'C6 self flat ATK (350)', value: c6Avg, kind: 'flat',
-          uptime: prune.c6_flat_attack ? div(c6Avg, prune.c6_flat_attack) : 0.0,
-          hit_coverage: `${hexCount} of ${hits.length} real hits`,
-          note: 'only up while Venti\'s own field-time window is active, same as her Hex self ATK% above -- damage-weighted average across her real hits, not the flat 350 max',
-        });
-      }
+  if (recipient === 'Prune' && timeline.field_time.has('Prune')) {
+    const pruneTickStart = timeline.arc_start.get('Prune') + timeline.field_time.get('Prune');
+    const hexActiveAt = (instant) => absorptionActive && timeline.activeAt('Venti', prune.atkBuffDuration(timeline), instant, false);
+    const hexNote = 'only up while Venti\'s own field-time window is active (see the Hex on-field rows in his own panel)';
+    addPerHit('Prune', 'Hex self ATK% (60% base)', 'percent', hits,
+      (h) => (hexActiveAt(h.time) ? prune.hex_attack_percent : 0), hexNote, prune.hex_attack_percent);
+    addPerHit('Prune', 'C2 self ATK ramp (20% -> 40%)', 'percent', hits,
+      (h) => (absorptionActive ? prune.c2AttackPercentAt(pyMod(h.time - pruneTickStart, timeline.period)) : 0),
+      'ramps 20% -> 30% -> 40% over the 4s after her Hex ticks begin -- damage-weighted average across her real hits, not the flat 40% max');
+    if (prune.team_buffs_enabled && prune.c6_enabled) {
+      addPerHit('Prune', 'C6 self flat ATK (350)', 'flat', hits,
+        (h) => (hexActiveAt(h.time) ? prune.c6_flat_attack : 0), hexNote, prune.c6_flat_attack);
     }
   }
 
   // -- Bennett (14s window) -- his team ATK buff is on-field-only; his Pyro
   // DMG bonus is a generic dmg% bonus, so it uses the full hit set.
-  const [bennettOnfieldFraction] = realUptimeOf('Bennett', VC.Bennett.BUFF_DURATION, onFieldHits);
-  add('Bennett', 'Team ATK buff', bennett.teamAttackBuff(bennettOnfieldFraction), 'flat', VC.Bennett.BUFF_DURATION,
+  add('Bennett', 'Team ATK buff', bennett.teamAttackBuff(1.0), 'flat', VC.Bennett.BUFF_DURATION,
     offFieldHits.length ? 'only genuinely on-field hits -- his off-field ticks never receive this, not even at C6' : null,
     onFieldHits);
-  const [bennettFraction] = realUptimeOf('Bennett', VC.Bennett.BUFF_DURATION, hits);
-  add('Bennett', 'C6 Pyro DMG bonus', bennett.pyroDamageBonus(bennettFraction), 'percent', VC.Bennett.BUFF_DURATION);
+  add('Bennett', 'C6 Pyro DMG bonus', bennett.pyroDamageBonus(1.0), 'percent', VC.Bennett.BUFF_DURATION);
 
   // -- Faruzan (16s, 22s at C2)
-  const [faruzanFraction] = realUptimeOf('Faruzan', faruzan.buff_duration);
-  add('Faruzan', 'Anemo DMG bonus', faruzan.anemoDamageBonus(faruzanFraction), 'percent', faruzan.buff_duration);
-  add('Faruzan', 'C6 crit DMG bonus (Anemo hits only)', faruzan.critDamageBonus(faruzanFraction), 'percent', faruzan.buff_duration, elementNote);
+  add('Faruzan', 'Anemo DMG bonus', faruzan.anemoDamageBonus(), 'percent', faruzan.buff_duration);
+  add('Faruzan', 'C6 crit DMG bonus (Anemo hits only)', faruzan.critDamageBonus(), 'percent', faruzan.buff_duration, elementNote);
 
   // -- Fischl -- her Pyro-ally team ATK% (10s, full uptime whenever Durin is
   // present); her Hydro-ally EM stays teamwide/full uptime.
   const presentElements = new Set(present.filter((c) => c.team_buffs_enabled ?? true).map((c) => c.element));
   const fischlPyroDuration = buffs.fischl_pyro_full_uptime ? null : VC.FISCHL_PYRO_ATTACK_BUFF_DURATION;
-  const [fischlPyroFraction] = realUptimeOf('Fischl', fischlPyroDuration);
-  add('Fischl', 'Pyro-ally team ATK% (kit passive)', buffs.fischl_pyro_attack_percent * fischlPyroFraction, 'percent', fischlPyroDuration,
+  add('Fischl', 'Pyro-ally team ATK% (kit passive)', buffs.fischl_pyro_attack_percent, 'percent', fischlPyroDuration,
     buffs.fischl_pyro_full_uptime ? 'full uptime -- Durin is on the team' : null);
   add('Fischl', 'Hydro-ally team EM (kit passive)', fischl.teamElementalMasteryBonus(presentElements), 'flat', null);
 
   // -- Mona (11s window)
-  const [monaFraction] = realUptimeOf('Mona', VC.Mona.BUFF_DURATION);
-  add('Mona', 'Team DMG bonus', mona.teamDamageBonus(monaFraction), 'percent', VC.Mona.BUFF_DURATION);
+  add('Mona', 'Team DMG bonus', mona.teamDamageBonus(), 'percent', VC.Mona.BUFF_DURATION);
   add('Mona', 'C1 swirl DMG bonus', mona.swirlDamageBonus(), 'percent', null);
-  add('Mona', 'C4 team crit rate bonus', mona.teamCritRateBonus(monaFraction), 'percent', VC.Mona.BUFF_DURATION);
-  add('Mona', 'C4 team crit DMG bonus', mona.teamCritDamageBonus(monaFraction), 'percent', VC.Mona.BUFF_DURATION);
+  add('Mona', 'C4 team crit rate bonus', mona.teamCritRateBonus(), 'percent', VC.Mona.BUFF_DURATION);
+  add('Mona', 'C4 team crit DMG bonus', mona.teamCritDamageBonus(), 'percent', VC.Mona.BUFF_DURATION);
   add('Mona', 'C2 team EM', mona.team_buffs_enabled && mona.c2_enabled ? mona.c2_team_elemental_mastery : 0, 'flat', null);
 
   // -- Albedo -- his own kit bonus and C6 are full-uptime; Patrol Song has a
   // real 15s window.
-  const [patrolSongFraction] = realUptimeOf('Albedo', VC.Albedo.PATROL_SONG_BUFF_DURATION);
   add('Albedo', 'Team DMG bonus', albedo.teamDamageBonus(), 'percent', null);
-  add('Albedo', 'Patrol Song team DMG bonus', albedo.patrolSongTeamDamageBonus() * patrolSongFraction, 'percent', VC.Albedo.PATROL_SONG_BUFF_DURATION);
+  add('Albedo', 'Patrol Song team DMG bonus', albedo.patrolSongTeamDamageBonus(), 'percent', VC.Albedo.PATROL_SONG_BUFF_DURATION);
   add('Albedo', 'C6 team DMG bonus', albedo.c6TeamDamageBonus(), 'percent', null);
   add('Albedo', 'C2 team EM', albedo.team_buffs_enabled && albedo.c2_enabled ? albedo.c2_team_elemental_mastery : 0, 'flat', null);
 
@@ -719,24 +714,21 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
     const threshold = weapon.team_buff_full_uptime_rotation_length ?? null;
     if (threshold !== null && team.rotationLength() >= threshold) valueScale = 1;
     const wielder = className(character);
-    const [elegyFraction] = realUptimeOf(wielder, VC.ELEGY_BUFF_DURATION);
-    add(wielder, 'Weapon team ATK%', (weapon.team_attack_percent ?? 0) * valueScale * elegyFraction, 'percent', VC.ELEGY_BUFF_DURATION);
+    add(wielder, 'Weapon team ATK%', (weapon.team_attack_percent ?? 0) * valueScale, 'percent', VC.ELEGY_BUFF_DURATION);
     add(wielder, 'Weapon team ATK% (teammates only)', (weapon.team_attack_percent_others ?? 0) * valueScale, 'percent', null);
-    add(wielder, 'Weapon team EM', (weapon.team_elemental_mastery ?? 0) * valueScale * elegyFraction, 'flat', VC.ELEGY_BUFF_DURATION);
+    add(wielder, 'Weapon team EM', (weapon.team_elemental_mastery ?? 0) * valueScale, 'flat', VC.ELEGY_BUFF_DURATION);
   }
 
   // -- TTDS -- Venti-only in the real formulae.
   if (recipient === 'Venti' && ttdsWielder !== null && timeline.nextInPlayOrder(className(ttdsWielder)) === 'Venti') {
     const ttdsWielderName = className(ttdsWielder);
-    const [ttdsFraction] = realUptimeOf(ttdsWielderName, VC.TTDS_BUFF_DURATION);
-    add(ttdsWielderName, 'TTDS ATK delta', ttdsFullDelta * ttdsFraction, 'flat', VC.TTDS_BUFF_DURATION);
+    add(ttdsWielderName, 'TTDS ATK delta', ttdsFullDelta, 'flat', VC.TTDS_BUFF_DURATION);
   }
 
   // -- Artifact-set team buffs, attributed to whichever eligible present
   // character actually wears the set.
   if (buffs.noblesse_wearer !== null) {
-    const [noblesseFraction] = realUptimeOf(buffs.noblesse_wearer, VC.NOBLESSE_BUFF_DURATION);
-    add(buffs.noblesse_wearer, 'Noblesse team ATK%', VC.ARTIFACT_SETS.Noblesse.four_piece_team_attack_percent * noblesseFraction,
+    add(buffs.noblesse_wearer, 'Noblesse team ATK%', VC.ARTIFACT_SETS.Noblesse.four_piece_team_attack_percent,
       'percent', VC.NOBLESSE_BUFF_DURATION);
   }
   const tenacityWearer = present.find((c) => c.artifact_set === 'Tenacity' && VC.tenacityEligible(c)) ?? null;
@@ -746,25 +738,20 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
   }
   if (buffs.scroll_wearer !== null) {
     const scrollDuration = buffs.scroll_full_uptime ? null : VC.SCROLL_BUFF_DURATION;
-    const [scrollFraction] = realUptimeOf(buffs.scroll_wearer, scrollDuration);
-    add(buffs.scroll_wearer, 'Scroll team DMG bonus', VC.ARTIFACT_SETS.Scroll.four_piece_team_damage_bonus * scrollFraction,
+    add(buffs.scroll_wearer, 'Scroll team DMG bonus', VC.ARTIFACT_SETS.Scroll.four_piece_team_damage_bonus,
       'percent', scrollDuration);
   }
-  if (buffs.celestial_gift_wearer !== null && hits.length) {
+  if (buffs.celestial_gift_wearer !== null && buffs.celestial_gift_wearer !== recipient) {
     // Celestial grants TWO separate 40%-capped components -- Anemo and the
     // wearer's own element -- each only applying to a hit tagged with that
-    // same element. Averaged (damage-weighted) across the recipient's own
-    // REAL hits via the exact point-in-time query the engine uses.
-    const totalDamage = sumDamage(hits);
-    const anemoAvg = totalDamage ? div(pySumMap(hits, (h) => h.damage * buffs.elementalDamageBonusAt('Anemo', h.time)), totalDamage) : 0.0;
-    add(buffs.celestial_gift_wearer, 'Celestial Gift Anemo DMG bonus', anemoAvg, 'percent',
-      VC.CELESTIAL_GIFT_BUFF_DURATION,
+    // same element. Decided hit by hit via the exact point-in-time query the
+    // engine uses.
+    addPerHit(buffs.celestial_gift_wearer, 'Celestial Gift Anemo DMG bonus', 'percent', hits,
+      (h) => buffs.elementalDamageBonusAt('Anemo', h.time),
       `only Anemo-tagged hits${recipient === 'Venti' || recipient === 'Prune' ? ' -- never his absorbed-element burst 2/her burst 3' : ''}`);
     const wearer = present.find((c) => className(c) === buffs.celestial_gift_wearer) ?? null;
     const secondaryElement = wearer !== null ? wearer.element : null;
     if (secondaryElement !== null && secondaryElement !== 'Anemo') {
-      const secondaryValue = totalDamage
-        ? div(pySumMap(hits, (h) => h.damage * buffs.elementalDamageBonusAt(secondaryElement, h.time)), totalDamage) : 0.0;
       let note;
       if (recipient === 'Venti' || recipient === 'Prune') {
         const liveNote = absorbedElement === secondaryElement
@@ -774,8 +761,8 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
       } else {
         note = `only his ${secondaryElement}-tagged hits`;
       }
-      add(buffs.celestial_gift_wearer, `Celestial Gift ${secondaryElement} DMG bonus`, secondaryValue, 'percent',
-        VC.CELESTIAL_GIFT_BUFF_DURATION, note);
+      addPerHit(buffs.celestial_gift_wearer, `Celestial Gift ${secondaryElement} DMG bonus`, 'percent', hits,
+        (h) => buffs.elementalDamageBonusAt(secondaryElement, h.time), note);
     }
   }
 
