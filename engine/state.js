@@ -744,9 +744,10 @@ function teamBuffsFor(recipient, hits, team, resolvedSettings, buffs, timeline, 
       buffs.tenacity_requires_activation ? 'off for the pre-activation hit only' : null);
   }
   if (buffs.scroll_wearer !== null) {
-    const [scrollFraction] = realUptimeOf(buffs.scroll_wearer, VC.SCROLL_BUFF_DURATION);
+    const scrollDuration = buffs.scroll_full_uptime ? null : VC.SCROLL_BUFF_DURATION;
+    const [scrollFraction] = realUptimeOf(buffs.scroll_wearer, scrollDuration);
     add(buffs.scroll_wearer, 'Scroll team DMG bonus', VC.ARTIFACT_SETS.Scroll.four_piece_team_damage_bonus * scrollFraction,
-      'percent', VC.SCROLL_BUFF_DURATION);
+      'percent', scrollDuration);
   }
   if (buffs.celestial_gift_wearer !== null && hits.length) {
     // Celestial grants TWO separate 40%-capped components -- Anemo and the
