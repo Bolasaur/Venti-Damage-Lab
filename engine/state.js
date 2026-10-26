@@ -312,7 +312,7 @@ function characterDefaultState(name) {
     substat_preset: character.substat_preset,
     artifacts: loadoutToState(character.artifacts),
     character_level: character.character_level,
-    // Up to 3 saved (artifact_set, artifacts, substat_preset) bundles the UI
+    // Up to 8 saved (artifact_set, artifacts, substat_preset) bundles the UI
     // can flip between -- purely the browser's own bookkeeping, never read by
     // the calculator, seeded with one entry mirroring the active fields.
     artifact_loadouts: [{

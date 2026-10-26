@@ -485,13 +485,13 @@ function renderEditor() {
   host.appendChild(renderArtifacts(name, build));
 }
 
-/* Up to 3 saved (artifact_set, artifacts, substat_preset) bundles per
+/* Up to 8 saved (artifact_set, artifacts, substat_preset) bundles per
  * character (see ``character_default_state`` in state.py) so a comparison
  * like "Rising Winds vs. Noblesse" is a click away instead of re-entering
  * substats from scratch every time. ``artifact_set``/``artifacts``/
  * ``substat_preset`` on ``build`` are always whichever loadout is active;
  * this stash holds the others. */
-const MAX_ARTIFACT_LOADOUTS = 3;
+const MAX_ARTIFACT_LOADOUTS = 8;
 
 /* Copies the live loadout fields onto whichever slot is currently marked
  * active, so edits made since the last switch aren't lost when moving away
