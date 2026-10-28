@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import { attack, expectedCritMultiplier, refinementScale, resistanceMultiplier, statAtLevel, weightedQuillMultiplier } from '../formulas.js';
 import { pyMin } from '../py.js';
@@ -98,7 +97,7 @@ export class Nicole extends Character {
   attackPercent(settings, artifactBuffs) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercent('Nicole') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + w.attack_percent + this.ascension_attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -174,14 +173,18 @@ export class Nicole extends Character {
 
   damage(settings, enemy, bennett, durin, artifactBuffs, skillBuffs, burstBuffs, skillTime = 0.0, burstTime = 0.0) {
     const w = this.weaponStats();
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
 
-    const critStats = (buffs) => [0.05 + artifactSet.four_piece_triggered_crit_rate + buffs.crit_rate_bonus, 0.72 + buffs.crit_damage_bonus];
+    const artifacts = this.artifacts.total;
+    const critStats = (buffs) => [
+      0.05 + (w.crit_rate ?? 0) + artifacts.crit_rate + artifactSet.four_piece_triggered_crit_rate + buffs.crit_rate_bonus,
+      0.5 + (w.crit_damage ?? 0) + artifacts.crit_damage + buffs.crit_damage_bonus,
+    ];
 
     const hitMultiplier = (buffs) => settings.defenseMultiplier(enemy, this.character_level) * resistanceMultiplier(buffs.resistance)
       * expectedCritMultiplier(...critStats(buffs));
 
-    const hitBonus = (buffs) => buffs.elemental_damage_bonus + w.damage_bonus + buffs.shared_bonus
+    const hitBonus = (buffs) => artifacts.pyro_damage_bonus + buffs.elemental_damage_bonus + w.damage_bonus + buffs.shared_bonus
       + bennett.pyroDamageBonus(buffs.bennett_uptime) + durin.pyroAnemoDamageBonus();
 
     const skillMv = this.c3_enabled ? this.c3_skill_mv : 2.491;

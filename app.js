@@ -458,6 +458,7 @@ function renderEditor() {
     renderEditor();   // keeps the active loadout tab's label in step
     recalc();
   }));
+  setOptionFields(build).forEach((field) => gearGrid.appendChild(field));
   /* Every character levels independently -- this drives their own base
    * ATK/DEF, their own share of enemy defense, and (via swirls they own) the
    * EM reaction multiplier. Only these eleven levels have real data (see
@@ -485,6 +486,39 @@ function renderEditor() {
   host.appendChild(renderArtifacts(name, build));
 }
 
+/* The extra inputs a set needs: the two picked effects of "2pc/2pc" (they
+ * stack, so picking one twice doubles it), or the wearer's Energy Recharge
+ * for Emblem. Older saved states predate these fields, hence the defaults. */
+function setOptionFields(build) {
+  if (build.artifact_set === '2pc/2pc') {
+    return ['two_piece_a', 'two_piece_b'].map((field, index) => dropdown(`2pc effect ${index + 1}`, CONST.two_piece_effects,
+      build[field] ?? CONST.two_piece_effects[0], (value) => {
+        build[field] = value;
+        recalc();
+      }));
+  }
+  if (build.artifact_set === 'Emblem') {
+    const block = el('label', 'field-block');
+    block.appendChild(el('span', null, 'Energy Recharge (%)'));
+    const input = el('input');
+    input.type = 'number';
+    input.step = '1';
+    input.value = Number(((build.energy_recharge ?? 1) * 100).toFixed(6));
+    input.title = 'Emblem converts 25% of this into Burst DMG, up to 75% (at 300% ER)';
+    input.addEventListener('input', () => {
+      const value = Number(input.value);
+      build.energy_recharge = Number.isFinite(value) ? value / 100 : 0;
+      recalc();
+    });
+    block.appendChild(input);
+    return [block];
+  }
+  return [];
+}
+
+/* The set-specific fields above, carried with each saved loadout bundle. */
+const LOADOUT_SET_OPTION_FIELDS = ['two_piece_a', 'two_piece_b', 'energy_recharge'];
+
 /* Up to 8 saved (artifact_set, artifacts, substat_preset) bundles per
  * character (see ``character_default_state`` in state.py) so a comparison
  * like "Rising Winds vs. Noblesse" is a click away instead of re-entering
@@ -499,6 +533,7 @@ const MAX_ARTIFACT_LOADOUTS = 8;
 function syncActiveLoadout(build) {
   const active = build.artifact_loadouts[build.active_loadout_index];
   active.artifact_set = build.artifact_set;
+  LOADOUT_SET_OPTION_FIELDS.forEach((field) => { active[field] = build[field]; });
   active.artifacts = JSON.parse(JSON.stringify(build.artifacts));
   active.substat_preset = build.substat_preset;
 }
@@ -507,6 +542,7 @@ function applyLoadout(build, index) {
   const loadout = build.artifact_loadouts[index];
   build.active_loadout_index = index;
   build.artifact_set = loadout.artifact_set;
+  LOADOUT_SET_OPTION_FIELDS.forEach((field) => { if (loadout[field] !== undefined) build[field] = loadout[field]; });
   build.artifacts = JSON.parse(JSON.stringify(loadout.artifacts));
   build.substat_preset = loadout.substat_preset;
 }
@@ -634,10 +670,7 @@ function renderPiece(build, piece, name) {
   /* main stat: pick the stat, then edit its value */
   const controls = el('div', 'main-stat-controls');
   const statSelect = el('select');
-  // EM only ever does anything through a swirl formula, and only
-  // Venti/Prune/Faruzan's kits have one -- it's a dead stat for anyone else.
   CONST.piece_main_stat_options[piece]
-    .filter((stat) => stat !== 'elemental_mastery' || meta(name).element === 'Anemo')
     .forEach((stat) => statSelect.appendChild(new Option(label(stat), stat)));
   statSelect.value = artifact.main_stat.stat;
   statSelect.addEventListener('change', () => {
@@ -661,8 +694,8 @@ function renderPiece(build, piece, name) {
   controls.appendChild(el('span', 'unit', isPercent(artifact.main_stat.stat) ? '%' : ''));
   head.appendChild(controls);
 
-  /* the circlet's crit toggle */
-  if (piece === 'circlet') {
+  /* the circlet's crit toggle -- only while its main stat is a crit stat */
+  if (piece === 'circlet' && artifact.main_stat.stat in CONST.circlet_crit_main_stats) {
     const isCritDamage = artifact.main_stat.stat === 'crit_damage';
     const button = el('button', 'ghost-button',
       isCritDamage ? 'Crit DMG ⇄ switch to Crit Rate' : 'Crit Rate ⇄ switch to Crit DMG');

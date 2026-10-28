@@ -1,7 +1,7 @@
 /* Team cost bookkeeping, the ``Team`` orchestrator (resolves every
  * character's buffs/damage together for one rotation), and the default
  * character roster/selection. */
-import { ANGELOS_BUFF_DURATION, ARTIFACT_SETS, resolveTeamArtifactBuffs } from './artifacts.js';
+import { ANGELOS_BUFF_DURATION, ARTIFACT_SETS, elementDamageBonus, resolveTeamArtifactBuffs } from './artifacts.js';
 import { Albedo } from './characters/albedo.js';
 import { Bennett } from './characters/bennett.js';
 import { Durin } from './characters/durin.js';
@@ -43,9 +43,6 @@ export const TEAM_COST_WEAPONS = new Set([
 
 /* Nicole's projections are "nondescript" real-time ticks landing on whoever's
  * actually on-field. */
-export const ELEMENT_DAMAGE_BONUS_FIELD = {
-  Anemo: 'anemo_damage_bonus', Pyro: 'pyro_damage_bonus', Electro: 'electro_damage_bonus', Hydro: 'hydro_damage_bonus', Geo: 'geo_damage_bonus',
-};
 const NICOLE_PROJECTION_TICK_INTERVAL = 3.0;
 const NICOLE_C1_PROJECTION_TICK_INTERVAL = 6.0;
 
@@ -54,7 +51,7 @@ const NICOLE_C1_PROJECTION_TICK_INTERVAL = 6.0;
 export function personalCritStats(character) {
   const weapon = character.weaponStats();
   const artifacts = character.artifacts.total;
-  const artifactSet = ARTIFACT_SETS[character.artifact_set];
+  const artifactSet = character.artifactSet();
   const critRate = 0.05 + (weapon.crit_rate ?? 0) + artifacts.crit_rate + artifactSet.four_piece_triggered_crit_rate;
   const critDamage = 0.5 + (weapon.crit_damage ?? 0) + artifacts.crit_damage + (character.ascension_crit_damage ?? 0);
   return [critRate, critDamage];
@@ -373,9 +370,8 @@ export class Team {
 
       const projectionBonusAt = (name, character, element, buffs) => {
         const artifacts = character.artifacts.total;
-        const artifactSet = ARTIFACT_SETS[character.artifact_set];
-        const fieldName = ELEMENT_DAMAGE_BONUS_FIELD[element];
-        let bonus = (fieldName ? (artifacts[fieldName] ?? 0) : 0) + buffs.elemental_damage_bonus + buffs.shared_bonus;
+        const artifactSet = character.artifactSet();
+        let bonus = elementDamageBonus(artifacts, element) + buffs.elemental_damage_bonus + buffs.shared_bonus;
         // Weapon DMG% stats apply normally -- Daybreak Chronicles' is the one
         // exception (conditional on Oz being out).
         if (character.weapon !== 'Daybreak Chronicles') bonus += character.weaponStats().damage_bonus ?? 0;

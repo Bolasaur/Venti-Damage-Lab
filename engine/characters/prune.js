@@ -1,4 +1,4 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
+import { elementDamageBonus } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import {
   attack, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier, statAtLevel, transformativeDamage,
@@ -102,7 +102,7 @@ export class Prune extends Character {
 
   attackPercent(settings, artifactBuffs, absorptionActive, elapsedSinceHexTicksStart = null, hexWindowActive = true) {
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     // Both her Hex self-buff and her C2 ramp disappear along with the rest of
     // Hex when nobody present grants Venti's burst an absorption at all.
     const hexBonus = absorptionActive
@@ -162,7 +162,7 @@ export class Prune extends Character {
     // element to absorb.
     const absorptionActive = absorptionSource !== null;
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     const defenseSlot = settings.defenseMultiplier(enemy, this.character_level);
     const weaponDamageBonus = this.weaponStats().damage_bonus;
     const noblesseBurstBonus = artifactSet.two_piece_burst_damage_bonus;
@@ -189,7 +189,7 @@ export class Prune extends Character {
 
     const anemoCrit = (buffs) => expectedCritMultiplier(...anemoCritStats(buffs));
 
-    const anemoBonus = (buffs) => (buffs.elemental_damage_bonus + buffs.shared_bonus + weaponDamageBonus + artifactSet.two_piece_anemo_damage_bonus
+    const anemoBonus = (buffs) => (artifacts.anemo_damage_bonus + buffs.elemental_damage_bonus + buffs.shared_bonus + weaponDamageBonus + artifactSet.two_piece_anemo_damage_bonus
       + faruzan.anemoDamageBonus(buffs.faruzan_uptime) + durin.pyroAnemoDamageBonus());
 
     // Burst 3 (her absorbed-element ticks) imbues whichever element Venti's
@@ -211,10 +211,10 @@ export class Prune extends Character {
     const absorbedTickDamage = (time, buffs) => {
       const offFieldAttack = offFieldAttackAt(buffs, time);
       const crit = expectedCritMultiplier(...absorbedTickCritStats(buffs));
-      let bonus;
-      if (sourceElement === 'Electro' || sourceElement === 'Hydro') bonus = buffs.elemental_damage_bonus + buffs.shared_bonus;
+      let bonus = elementDamageBonus(artifacts, sourceElement);
+      if (sourceElement === 'Electro' || sourceElement === 'Hydro') bonus += buffs.elemental_damage_bonus + buffs.shared_bonus;
       else {
-        bonus = buffs.elemental_damage_bonus + noblesseBurstBonus + buffs.shared_bonus + weaponDamageBonus
+        bonus += buffs.elemental_damage_bonus + noblesseBurstBonus + buffs.shared_bonus + weaponDamageBonus
           + bennett.pyroDamageBonus(buffs.bennett_uptime) + durin.pyroAnemoDamageBonus();
       }
       return 1.5 * offFieldAttack * defenseSlot * crit * (1 + bonus) * resistanceMultiplier(buffs.resistance);

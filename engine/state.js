@@ -59,14 +59,15 @@ export function pieceSubstatFieldsFor(characterName) {
   return fields;
 }
 
-/* Main stats the UI lets you pick per piece. Values stay freely editable. */
+/* Main stats the UI lets you pick per piece -- the same list for every
+ * character. Values stay freely editable. */
 const PIECE_MAIN_STAT_OPTIONS = {
   flower: ['hp'],
   feather: ['flat_attack'],
-  sands: ['attack_percent', 'defense_percent', 'elemental_mastery', 'energy_recharge', 'hp'],
-  goblet: ['attack_percent', 'anemo_damage_bonus', 'pyro_damage_bonus',
-    'electro_damage_bonus', 'hydro_damage_bonus', 'geo_damage_bonus', 'elemental_mastery', 'hp'],
-  circlet: ['crit_rate', 'crit_damage', 'attack_percent', 'elemental_mastery', 'hp'],
+  sands: ['attack_percent', 'defense_percent', 'elemental_mastery', 'energy_recharge'],
+  goblet: ['attack_percent', 'defense_percent', 'elemental_mastery', 'anemo_damage_bonus', 'pyro_damage_bonus',
+    'electro_damage_bonus', 'hydro_damage_bonus', 'geo_damage_bonus'],
+  circlet: ['crit_rate', 'crit_damage', 'defense_percent', 'elemental_mastery', 'attack_percent'],
 };
 
 /* Stats stored as fractions and shown as percentages in the browser. */
@@ -84,14 +85,6 @@ const STAT_LABELS = {
   elemental_mastery: 'EM', energy_recharge: 'Energy Recharge',
 };
 
-/* Element -> the artifact bonus field that actually buffs that element. */
-const ELEMENT_BONUS_FIELD = {
-  Anemo: 'anemo_damage_bonus',
-  Pyro: 'pyro_damage_bonus',
-  Electro: 'electro_damage_bonus',
-  Hydro: 'hydro_damage_bonus',
-  Geo: 'geo_damage_bonus',
-};
 
 const CIRCLET_CRIT_MAIN_STATS = {
   crit_rate: VC.CIRCLET_CRIT_RATE_MAIN_STAT,
@@ -308,6 +301,9 @@ function characterDefaultState(name) {
     weapon: character.weapon,
     weapon_refinement: character.weapon_refinement,
     artifact_set: character.artifact_set,
+    two_piece_a: character.two_piece_a,
+    two_piece_b: character.two_piece_b,
+    energy_recharge: character.energy_recharge,
     con_level: defaultConstellationLevel(character),
     substat_preset: character.substat_preset,
     artifacts: loadoutToState(character.artifacts),
@@ -317,6 +313,9 @@ function characterDefaultState(name) {
     // the calculator, seeded with one entry mirroring the active fields.
     artifact_loadouts: [{
       artifact_set: character.artifact_set,
+      two_piece_a: character.two_piece_a,
+      two_piece_b: character.two_piece_b,
+      energy_recharge: character.energy_recharge,
       artifacts: loadoutToState(character.artifacts),
       substat_preset: character.substat_preset,
     }],
@@ -379,6 +378,7 @@ export function uiConstants() {
     percent_stats: [...PERCENT_STATS],
     stat_labels: { ...STAT_LABELS },
     artifact_sets: Object.keys(VC.ARTIFACT_SETS),
+    two_piece_effects: Object.keys(VC.TWO_PIECE_EFFECTS),
     presets: [...VC.PRESET_TIERS],
     circlet_crit_main_stats: { ...CIRCLET_CRIT_MAIN_STATS },
     main_stat_presets: { ...MAIN_STAT_PRESETS },
@@ -425,6 +425,14 @@ function buildCharacter(name, state, present, slot) {
   const artifactSet = at(state, 'artifact_set');
   if (!VC.hasArtifactSet(artifactSet)) throw new ValueError(`Unknown artifact set ${pyRepr(artifactSet)}`);
   kwargs.artifact_set = artifactSet;
+  // Only read for "2pc/2pc"/Emblem, but always passed so switching sets keeps
+  // them. Older saved states predate them, hence the defaults.
+  for (const field of ['two_piece_a', 'two_piece_b']) {
+    const effect = get(state, field, VC.COMMON_DEFAULTS[field]);
+    if (!VC.hasTwoPieceEffect(effect)) throw new ValueError(`${name}: unknown 2pc effect ${pyRepr(effect)}`);
+    kwargs[field] = effect;
+  }
+  kwargs.energy_recharge = pyFloat(get(state, 'energy_recharge', VC.COMMON_DEFAULTS.energy_recharge));
 
   if (names.has('substat_preset')) kwargs.substat_preset = at(state, 'substat_preset');
   if (names.has('team_buffs_enabled')) kwargs.team_buffs_enabled = present;
@@ -489,7 +497,7 @@ export function buildTeam(state) {
 function characterStatPanel(character, resonanceAttackPercent) {
   const weapon = character.weaponStats();
   const artifacts = character.artifacts.total;
-  const artifactSet = VC.ARTIFACT_SETS[character.artifact_set];
+  const artifactSet = character.artifactSet();
 
   const attackPercent = (artifacts.attack_percent
     + (weapon.attack_percent ?? 0)
@@ -500,9 +508,7 @@ function characterStatPanel(character, resonanceAttackPercent) {
   const totalAttack = VC.attack(character.base_attack, weapon.base_attack, attackPercent, artifacts.flat_attack);
   const critRate = (0.05 + (weapon.crit_rate ?? 0) + artifacts.crit_rate + artifactSet.four_piece_triggered_crit_rate);
   const critDamage = (0.5 + (weapon.crit_damage ?? 0) + artifacts.crit_damage + (character.ascension_crit_damage ?? 0));
-  const elementField = ELEMENT_BONUS_FIELD[character.element];
-  let damageBonus = weapon.damage_bonus ?? 0;
-  if (elementField) damageBonus += artifacts[elementField];
+  let damageBonus = (weapon.damage_bonus ?? 0) + VC.elementDamageBonus(artifacts, character.element);
   // VV's 2pc (Anemo) and Husk's 4pc (Geo) are personal DMG bonuses; Golden
   // Troupe's Skill DMG bonus is shown as the same kind of simplified aggregate.
   if (character.element === 'Anemo') damageBonus += artifactSet.two_piece_anemo_damage_bonus;

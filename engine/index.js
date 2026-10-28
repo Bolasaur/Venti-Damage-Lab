@@ -11,6 +11,7 @@ export * from './rotation.js';
 export * from './substats.js';
 export * from './team.js';
 export * from './timeline.js';
+export { COMMON_DEFAULTS } from './characters/base.js';
 export { Albedo } from './characters/albedo.js';
 export { Bennett } from './characters/bennett.js';
 export { Durin } from './characters/durin.js';

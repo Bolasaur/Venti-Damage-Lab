@@ -4,7 +4,7 @@
  * Every helper here takes generic character objects and dispatches by
  * attribute/class name, so this module has no dependency on the character
  * classes -- it is, in fact, a dependency *of* several of them. */
-import { ARTIFACT_SETS } from './artifacts.js';
+import { elementDamageBonus } from './artifacts.js';
 import { DamageResult, Hit } from './combat.js';
 import {
   HARP_TRIGGER_COUNT_BY_REFINEMENT, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier, slotOf,
@@ -266,7 +266,7 @@ export class VentiRotation {
 
     // Venti's own C4 Anemo DMG bonus likewise only turns on once activated.
     const nonC4AnemoBonus = (buffs) => (venti.artifacts.total.anemo_damage_bonus + buffs.elemental_damage_bonus
-      + ARTIFACT_SETS[venti.artifact_set].two_piece_anemo_damage_bonus
+      + venti.artifactSet().two_piece_anemo_damage_bonus
       + faruzan.anemoDamageBonus(buffs.faruzan_uptime) + durin.pyroAnemoDamageBonus());
 
     const c4AnemoBonus = venti.c4_enabled ? venti.c4_anemo_damage_bonus : 0;
@@ -281,15 +281,17 @@ export class VentiRotation {
       ? 0.0 : bennett.pyroDamageBonus(burst2Buffs.bennett_uptime) + durin.pyroAnemoDamageBonus();
     // ``shared_bonus`` is NOT repeated here -- ``nonHexBonus(burst2Buffs)``
     // (added alongside this at ``pyroBurstMult``) already includes it once.
-    const burst2Bonus = burst2Buffs.elemental_damage_bonus + burst2Extra;
+    const burst2Bonus = elementDamageBonus(venti.artifacts.total, sourceElement) + burst2Buffs.elemental_damage_bonus + burst2Extra;
 
     // Noblesse's 2pc Elemental Burst DMG bonus only applies to Venti's own
     // burst hits (burst 1/2).
-    const ventiBurstBonus = ARTIFACT_SETS[venti.artifact_set].two_piece_burst_damage_bonus;
+    const ventiBurstBonus = venti.artifactSet().two_piece_burst_damage_bonus;
     // Golden Troupe's Skill DMG bonus only applies to his two genuinely
     // Skill-type entries; Polar Star's "skill and burst DMG bonus" folds into
     // the Skill-type entries *and* both burst multipliers.
-    const goldenTroupeSkillBonus = ARTIFACT_SETS[venti.artifact_set].four_piece_skill_damage_bonus;
+    const goldenTroupeSkillBonus = venti.artifactSet().four_piece_skill_damage_bonus;
+    // Desert Pavilion's Normal Attack DMG bonus -- his normals only.
+    const setNormalAttackBonus = venti.artifactSet().normal_attack_damage_bonus;
     const weaponBurstBonus = w.burst_damage_bonus;
     const weaponSkillBonus = w.skill_damage_bonus;
 
@@ -324,7 +326,7 @@ export class VentiRotation {
     // dmg%/Anemo-bonus/crit "rest of scaling" at one slot's own instant --
     // only the weapon-bonus term differs between skill and normal slots.
     const slotRest = (buffs, time, normal) => {
-      const weaponBonus = !normal ? (goldenTroupeSkillBonus + weaponSkillBonus) : w.normal_attack_bonus;
+      const weaponBonus = !normal ? (goldenTroupeSkillBonus + weaponSkillBonus) : w.normal_attack_bonus + setNormalAttackBonus;
       return (1 + hexBonus + nonHexBonus(buffs) + anemoBonus(buffs) + weaponBonus) * anemoCrit(buffs, true) * defense
         * resistanceMultiplier(buffs.resistance);
     };

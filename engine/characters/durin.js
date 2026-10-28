@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import {
   RefinementTable, attack, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier, statAtLevel,
@@ -131,7 +130,7 @@ export class Durin extends Character {
    * timestamp instead of the blended average over Durin's own on-field arc. */
   finalAttack(settings, nicole, artifactBuffs, nicoleUptime = 1.0, instant = null) {
     const artifacts = this.artifacts.total;
-    const risingWinds = ARTIFACT_SETS[this.artifact_set];
+    const risingWinds = this.artifactSet();
     const weapon = this.weaponStats();
     const teamAttackPercent = instant !== null ? artifactBuffs.teamAttackPercentAt(instant) : artifactBuffs.teamAttackPercent('Durin');
     const percent = (teamAttackPercent + artifacts.attack_percent
@@ -143,7 +142,7 @@ export class Durin extends Character {
 
   critStats(extraCritRate = 0, extraCritDamage = 0) {
     const artifacts = this.artifacts.total;
-    const risingWinds = ARTIFACT_SETS[this.artifact_set];
+    const risingWinds = this.artifactSet();
     const weapon = this.weaponStats();
     return [
       0.05 + weapon.crit_rate + extraCritRate + artifacts.crit_rate + risingWinds.four_piece_triggered_crit_rate,
@@ -207,7 +206,7 @@ export class Durin extends Character {
       + nicole.skillOnFieldAttack(buffs.nicole_uptime) + bennett.teamAttackBuff(buffs.bennett_uptime));
 
     const burstDamageBonus = (weapon.burst_damage_bonus + this.c4OwnBurstDamageBonus()
-      + ARTIFACT_SETS[this.artifact_set].two_piece_burst_damage_bonus);
+      + this.artifactSet().two_piece_burst_damage_bonus);
     // C6's personal burst-only defense ignore only affects burst entries.
     const skillDefenseResistance = settings.defenseMultiplier(enemy, this.character_level) * resistanceMultiplier(skillBuffs.resistance);
     const burstDefenseResistance = this.burstDefenseMultiplier(settings, enemy) * resistanceMultiplier(burstBuffs.resistance);
@@ -219,7 +218,7 @@ export class Durin extends Character {
     const burstCritDamage = weapon.burst_crit_damage ?? 0;
     const skillCritStats = this.critStats(skillBuffs.crit_rate_bonus, skillBuffs.crit_damage_bonus);
     const burstCritStats = this.critStats(burstBuffs.crit_rate_bonus, burstCritDamage + burstBuffs.crit_damage_bonus);
-    const skillMultiplier = (1 + hitBonus(skillBuffs) + weapon.skill_damage_bonus + ARTIFACT_SETS[this.artifact_set].four_piece_skill_damage_bonus)
+    const skillMultiplier = (1 + hitBonus(skillBuffs) + weapon.skill_damage_bonus + this.artifactSet().four_piece_skill_damage_bonus)
       * skillDefenseResistance * expectedCritMultiplier(...skillCritStats);
     const burstMultiplier = (1 + hitBonus(burstBuffs) + burstDamageBonus) * burstDefenseResistance * expectedCritMultiplier(...burstCritStats);
 

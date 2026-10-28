@@ -15,6 +15,19 @@ const ARTIFACT_STAT_FIELD_SET = new Set(ARTIFACT_STAT_FIELDS);
 
 export const isArtifactStat = (name) => ARTIFACT_STAT_FIELD_SET.has(name);
 
+/* Element -> the artifact stat that boosts that element's hits. */
+export const ELEMENT_DAMAGE_BONUS_FIELD = {
+  Anemo: 'anemo_damage_bonus', Pyro: 'pyro_damage_bonus', Electro: 'electro_damage_bonus', Hydro: 'hydro_damage_bonus', Geo: 'geo_damage_bonus',
+};
+
+/* A hit's elemental DMG bonus from its owner's artifact totals -- only the
+ * hit's own element counts (an Anemo goblet does nothing for a Geo hit).
+ * ``element`` may be null (nothing absorbed), giving 0. */
+export function elementDamageBonus(stats, element) {
+  const field = ELEMENT_DAMAGE_BONUS_FIELD[element];
+  return field ? stats[field] : 0;
+}
+
 /* Stats from either one artifact's main stat or its substats. hp, hp_percent
  * and energy_recharge are unused by any damage formula. */
 export class ArtifactStats {
@@ -66,15 +79,24 @@ export class Artifact {
   }
 }
 
-/* A complete five-piece loadout. */
+/* A complete five-piece loadout. ``setStats`` is the worn set's plain stat
+ * bonuses (see ``ArtifactSet.stats``), counted in ``total`` as if they were
+ * one more piece. */
 export class ArtifactLoadout {
-  constructor({ flower, feather, sands, goblet, circlet }) {
+  constructor({ flower, feather, sands, goblet, circlet }, setStats = null) {
     this.flower = flower;
     this.feather = feather;
     this.sands = sands;
     this.goblet = goblet;
     this.circlet = circlet;
+    this.setStats = setStats;
     this._total = null;
+  }
+
+  /* The same five pieces, with ``setStats`` counted in the total. */
+  withSetStats(setStats) {
+    const { flower, feather, sands, goblet, circlet } = this;
+    return new ArtifactLoadout({ flower, feather, sands, goblet, circlet }, setStats);
   }
 
   /* Cached for the same reason as ``Artifact.stats``. */
@@ -82,6 +104,7 @@ export class ArtifactLoadout {
     if (this._total === null) {
       let total = new ArtifactStats();
       for (const piece of [this.flower, this.feather, this.sands, this.goblet, this.circlet]) total = total.add(piece.stats);
+      if (this.setStats !== null) total = total.add(this.setStats);
       this._total = total;
     }
     return this._total;
@@ -108,8 +131,59 @@ export class ArtifactSet {
     this.four_piece_skill_damage_bonus = 0;
     // Shreds whichever element Venti's burst currently absorbs.
     this.four_piece_absorption_resistance_shred = 0;
+    // Personal Normal Attack DMG bonus (Desert Pavilion).
+    this.normal_attack_damage_bonus = 0;
+    // Plain stat bonuses (ATK%, EM, elemental DMG%, ...) that count toward
+    // the wearer's artifact totals -- see ``ArtifactLoadout.setStats``.
+    this.stats = null;
     Object.assign(this, values);
   }
+}
+
+/* The 2pc effects a "2pc/2pc" set can mix, each either a plain stat (counted
+ * in the wearer's artifact totals) or a set field. Picking the same one twice
+ * stacks it. */
+export const TWO_PIECE_EFFECTS = {
+  '18% ATK': { stat: 'attack_percent', value: 0.18 },
+  '30% DEF': { stat: 'defense_percent', value: 0.30 },
+  '20% Skill DMG': { field: 'four_piece_skill_damage_bonus', value: 0.20 },
+  '80 EM': { stat: 'elemental_mastery', value: 80 },
+  '15% Anemo DMG': { stat: 'anemo_damage_bonus', value: 0.15 },
+  '15% Geo DMG': { stat: 'geo_damage_bonus', value: 0.15 },
+  '15% Pyro DMG': { stat: 'pyro_damage_bonus', value: 0.15 },
+  '20% Burst DMG': { field: 'two_piece_burst_damage_bonus', value: 0.20 },
+  '20% Energy Recharge': { stat: 'energy_recharge', value: 0.20 },
+};
+
+export const hasTwoPieceEffect = (name) => Object.prototype.hasOwnProperty.call(TWO_PIECE_EFFECTS, name);
+
+/* Emblem of Severed Fate: Burst DMG bonus of 25% of the wearer's Energy
+ * Recharge, capped at 75%. */
+export const EMBLEM_BURST_BONUS_PER_ENERGY_RECHARGE = 0.25;
+export const EMBLEM_BURST_BONUS_CAP = 0.75;
+
+/* The set a character actually gets: the fixed ``ARTIFACT_SETS`` entry,
+ * except for the two whose bonus depends on the wearer's own choices --
+ * "2pc/2pc" (two picked 2pc effects) and Emblem (scales off their ER). */
+export function resolveArtifactSet(name, { twoPieceA, twoPieceB, energyRecharge }) {
+  if (name === '2pc/2pc') {
+    const values = {};
+    const stats = {};
+    for (const effectName of [twoPieceA, twoPieceB]) {
+      if (!hasTwoPieceEffect(effectName)) throw new ValueError(`Unknown 2pc effect ${pyRepr(effectName)}`);
+      const effect = TWO_PIECE_EFFECTS[effectName];
+      if (effect.stat) stats[effect.stat] = (stats[effect.stat] ?? 0) + effect.value;
+      else values[effect.field] = (values[effect.field] ?? 0) + effect.value;
+    }
+    return new ArtifactSet(name, { ...values, stats: new ArtifactStats(stats) });
+  }
+  if (name === 'Emblem') {
+    return new ArtifactSet(name, {
+      stats: new ArtifactStats({ energy_recharge: 0.20 }),
+      two_piece_burst_damage_bonus: pyMin(EMBLEM_BURST_BONUS_PER_ENERGY_RECHARGE * energyRecharge, EMBLEM_BURST_BONUS_CAP),
+    });
+  }
+  return ARTIFACT_SETS[name];
 }
 
 export const ARTIFACT_SETS = {
@@ -123,6 +197,12 @@ export const ARTIFACT_SETS = {
   VV: new ArtifactSet('VV', { two_piece_anemo_damage_bonus: 0.15, four_piece_absorption_resistance_shred: 0.40 }),
   Husk: new ArtifactSet('Husk', { two_piece_defense_percent: 0.54, four_piece_geo_damage_bonus: 0.24 }),
   'Golden Troupe': new ArtifactSet('Golden Troupe', { four_piece_skill_damage_bonus: 0.75 }),
+  'Desert Pavilion': new ArtifactSet('Desert Pavilion', {
+    stats: new ArtifactStats({ anemo_damage_bonus: 0.15 }), normal_attack_damage_bonus: 0.40,
+  }),
+  // Placeholders -- the real bonus comes from ``resolveArtifactSet``.
+  Emblem: new ArtifactSet('Emblem'),
+  '2pc/2pc': new ArtifactSet('2pc/2pc'),
   None: new ArtifactSet('None'),
 };
 
@@ -395,7 +475,7 @@ export function resolveTeamArtifactBuffs(characters, rotationLength, timeline, a
   const fischlPyroFullUptime = characters.some((c) => className(c) === 'Durin' && (c.team_buffs_enabled ?? true));
   for (const character of characters) {
     const name = className(character);
-    const setData = ARTIFACT_SETS[character.artifact_set];
+    const setData = character.artifactSet();
     if (setData.four_piece_celestial_damage_bonus && !CELESTIAL_GIFT_INELIGIBLE.has(name)) {
       // Celestial always buffs Anemo and the wearer's own element, at whatever
       // per-wearer quirk their kit allows (Fischl's copy holds at 50%). Values

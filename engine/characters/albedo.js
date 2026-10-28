@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import {
   attack, defense, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier, statAtLevel, valueAtRefinement,
@@ -138,7 +137,7 @@ export class Albedo extends Character {
 
   defensePercent() {
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifacts.defense_percent + this.weaponStats().defense_percent + artifactSet.two_piece_defense_percent
       + (this.c1_enabled ? this.c1_defense_percent : 0));
   }
@@ -151,7 +150,7 @@ export class Albedo extends Character {
    * here uses the SNAPSHOT query. */
   attackPercent(settings, artifactBuffs) {
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercentSnapshot('Albedo') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -200,7 +199,7 @@ export class Albedo extends Character {
     const finalAttack = this.finalAttack(settings, nicole, bennett, artifactBuffs, nicoleSnapshot, bennettSnapshot);
     const finalDefense = this.finalDefense();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     const critStats = [
       0.05 + w.crit_rate + artifacts.crit_rate + artifactSet.four_piece_triggered_crit_rate + critRateBonus,
       0.5 + w.crit_damage + artifacts.crit_damage + critDamageBonus,

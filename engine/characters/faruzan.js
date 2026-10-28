@@ -1,4 +1,4 @@
-import { ARTIFACT_SETS, ELEGY_FULL_UPTIME_ROTATION_LENGTH } from '../artifacts.js';
+import { ELEGY_FULL_UPTIME_ROTATION_LENGTH } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import {
   attack, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier, statAtLevel, transformativeDamage,
@@ -80,7 +80,7 @@ export class Faruzan extends Character {
   attackPercent(settings, artifactBuffs) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercent('Faruzan') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + w.attack_percent + this.ascension_attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -128,7 +128,7 @@ export class Faruzan extends Character {
     const absorptionActive = absorptionSource !== null;
     const finalAttack = this.finalAttack(settings, artifactBuffs);
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
 
     // Nicole's 300 on-field ATK and Bennett's team ATK buff both apply to
     // Faruzan's skill and her burst (genuinely on-field hits).

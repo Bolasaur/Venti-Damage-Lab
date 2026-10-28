@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import { attack, expectedCritMultiplier, refinementScale, resistanceMultiplier, statAtLevel, weightedQuillMultiplier } from '../formulas.js';
 import { bennettArtifacts } from '../substats.js';
@@ -62,7 +61,7 @@ export class Bennett extends Character {
   attackPercent(settings, artifactBuffs) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercent('Bennett') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + w.attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -97,7 +96,7 @@ export class Bennett extends Character {
   damage(settings, enemy, nicole, durin, artifactBuffs, skillBuffs, burstBuffs, skillTime = 0.0, burstTime = 0.0) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     const finalAttack = this.finalAttack(settings, artifactBuffs);
 
     // Rising Winds' 20% crit rate doesn't trigger for Bennett.
@@ -109,7 +108,7 @@ export class Bennett extends Character {
     const hitMultiplier = (buffs) => settings.defenseMultiplier(enemy, this.character_level) * resistanceMultiplier(buffs.resistance)
       * expectedCritMultiplier(...critStats(buffs));
 
-    const hitBonus = (buffs) => buffs.elemental_damage_bonus + buffs.shared_bonus + durin.pyroAnemoDamageBonus() + w.damage_bonus;
+    const hitBonus = (buffs) => artifacts.pyro_damage_bonus + buffs.elemental_damage_bonus + buffs.shared_bonus + durin.pyroAnemoDamageBonus() + w.damage_bonus;
 
     // Nicole's 300 on-field ATK applies to both Bennett's skill and his burst.
     const onFieldAttack = (buffs) => finalAttack + nicole.skillOnFieldAttack(buffs.nicole_uptime);

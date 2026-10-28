@@ -1,4 +1,4 @@
-import { ARTIFACT_SETS, ELEGY_FULL_UPTIME_ROTATION_LENGTH } from '../artifacts.js';
+import { ELEGY_FULL_UPTIME_ROTATION_LENGTH } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import {
   HARP_TRIGGER_COUNT_BY_REFINEMENT, attack, expectedCritMultiplier, hitSuffix, refinementScale, resistanceMultiplier,
@@ -105,7 +105,7 @@ export class Fischl extends Character {
   attackPercent(settings, artifactBuffs) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercentSnapshot('Fischl') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + w.attack_percent + this.ascension_attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -142,7 +142,7 @@ export class Fischl extends Character {
     const onFieldAttack = (this.finalAttack(settings, artifactBuffs) + nicole.skillOnFieldAttack(snap.nicole_uptime)
       + bennett.teamAttackBuff(snap.bennett_uptime));
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     const w = this.weaponStats();
     const critStats = [
       0.05 + w.crit_rate + artifacts.crit_rate + artifactSet.four_piece_triggered_crit_rate + snap.crit_rate_bonus,

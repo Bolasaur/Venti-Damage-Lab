@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { DamageResult, Hit } from '../combat.js';
 import { attack, expectedCritMultiplier, hitSuffix, resistanceMultiplier, statAtLevel, weightedQuillMultiplier } from '../formulas.js';
 import { div, pySum, pySumMap } from '../py.js';
@@ -81,7 +80,7 @@ export class Mona extends Character {
   attackPercent(settings, artifactBuffs) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
     return (artifactBuffs.teamAttackPercent('Mona') + artifactBuffs.weapon_team_attack_percent_others
       + artifacts.attack_percent + w.attack_percent + settings.pyro_resonance_attack_percent
       + artifactSet.two_piece_attack_percent + artifactSet.four_piece_triggered_attack_percent);
@@ -127,7 +126,7 @@ export class Mona extends Character {
     // is an off-field ticking ability -- 3 ticks plus a finale, once every 2s
     // starting when she leaves the field.
     const artifacts = this.artifacts.total;
-    const artifactSet = ARTIFACT_SETS[this.artifact_set];
+    const artifactSet = this.artifactSet();
 
     const hitFinalAttack = (buffs) => this.finalAttack(settings, nicole, artifactBuffs, buffs.nicole_uptime);
 
@@ -144,7 +143,8 @@ export class Mona extends Character {
 
     const hitCrit = (buffs) => expectedCritMultiplier(...critStats(buffs));
 
-    const hitBonus = (buffs) => buffs.elemental_damage_bonus + buffs.shared_bonus + this.weaponStats().damage_bonus + this.hydro_damage_bonus_percent;
+    const hitBonus = (buffs) => artifacts.hydro_damage_bonus + buffs.elemental_damage_bonus + buffs.shared_bonus + this.weaponStats().damage_bonus
+      + this.hydro_damage_bonus_percent;
 
     const plainMultiplier = (buffs) => (1 + hitBonus(buffs)) * hitCrit(buffs) * settings.defenseMultiplier(enemy, this.character_level)
       * resistanceMultiplier(buffs.resistance);

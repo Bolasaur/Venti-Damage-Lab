@@ -1,4 +1,3 @@
-import { ARTIFACT_SETS } from '../artifacts.js';
 import { attack, expectedCritMultiplier, refinementScale, statAtLevel } from '../formulas.js';
 import { pyIntValue, pyMin } from '../py.js';
 import { ventiArtifacts } from '../substats.js';
@@ -125,7 +124,7 @@ export class Venti extends Character {
   attackPercent(settings, prune, artifactBuffs, activated, pruneActive, anemoCharacterCount = 0, externalAttackPercent = 0.0) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const risingWinds = ARTIFACT_SETS[this.artifact_set];
+    const risingWinds = this.artifactSet();
     return (artifacts.attack_percent + risingWinds.two_piece_attack_percent
       + (activated ? risingWinds.four_piece_triggered_attack_percent : 0)
       // Tenacity's 4pc only needs Venti's own activation event when Faruzan's
@@ -154,7 +153,7 @@ export class Venti extends Character {
   critStats(activated, extraCritDamage = 0, extraCritRate = 0) {
     const w = this.weaponStats();
     const artifacts = this.artifacts.total;
-    const risingWinds = ARTIFACT_SETS[this.artifact_set];
+    const risingWinds = this.artifactSet();
     return [
       0.05 + w.crit_rate + artifacts.crit_rate + extraCritRate + (activated ? risingWinds.four_piece_triggered_crit_rate : 0),
       0.5 + w.crit_damage + artifacts.crit_damage + (this.c6_enabled ? this.c6_crit_damage : 0) + extraCritDamage,
