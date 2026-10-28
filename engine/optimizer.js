@@ -46,7 +46,7 @@ export const ARTIFACT_INVESTMENTS = ['low', 'medium', 'high', 'KQM', 'mine'];
 export const F2P_WEAPONS = new Set([
   'Rust', 'Flowing Purity', 'TTDS', 'Favonius Codex', "Moonweaver's Dawn",
   'Sapwood Blade', 'Favonius Sword', 'Favonius Bow', 'Stringless',
-  'Harbinger of Dawn', 'Cinnabar Spindle', 'Slingshot', 'Exaiphanes',
+  'Harbinger of Dawn', 'Cinnabar Spindle', 'Flute of Ezpitzal', 'Slingshot', 'Exaiphanes',
 ]);
 
 /* An untracked-cost 5-star (or a coincidentally-R5-default 4-star) that an

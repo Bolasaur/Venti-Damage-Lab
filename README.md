@@ -7,9 +7,9 @@ calculations and the Cost Scamming optimizer can use every CPU core.
 ## Running it
 
 Host this folder on any static file host (GitHub Pages, Netlify, Cloudflare
-Pages, ...), or serve it locally:
+Pages, ...), or serve it locally from this folder:
 
-    python -m http.server --directory web 8000
+    python -m http.server 8000
 
 then open <http://localhost:8000/>. Opening `index.html` straight from disk
 (`file://`) won't work: browsers refuse to load JavaScript modules and
@@ -30,16 +30,8 @@ start again from the defaults.
 - `engine/optimizer.js` -- the Cost Scamming search.
 - `engine/team.js`, `rotation.js`, `timeline.js`, `artifacts.js`,
   `substats.js`, `combat.js`, `formulas.js`, `characters/*.js` -- the damage
-  engine, one module per Python module it was ported from.
+  engine (originally ported from a Python calculator, since retired).
 - `engine/py.js` -- exact re-implementations of the Python built-ins the
-  engine relies on (`sum`, `round`, `%`, `//`, ...), so every number matches
-  the original Python calculator bit for bit.
+  engine relies on (`sum`, `round`, `%`, `//`, ...), which keeps the
+  arithmetic identical to the original Python calculator it was ported from.
 
-## Checking against the Python original
-
-`tools/parity_check.py` runs thousands of randomized builds through both the
-Python calculator (`team-builder/`) and this engine and requires identical
-output:
-
-    python tools/parity_check.py             # 400 random builds
-    python tools/parity_check.py --optimize  # also compares optimizer runs (slow)

@@ -87,6 +87,12 @@ export class Albedo extends Character {
       base_attack: 454, crit_rate: 0.0, crit_damage: 0.0, defense_percent: 0.69, damage_bonus: 0.0,
       quill_defense_percent: refinementScale(0.40, 0.80),
     },
+    // 69% DEF% substat plus its 16%-32% (by refinement) DEF% passive on
+    // Skill use -- always up, since his whole kit snapshots at his Skill.
+    'Flute of Ezpitzal': {
+      base_attack: 454, crit_rate: 0.0, crit_damage: 0.0,
+      defense_percent: refinementScale(0.69 + 0.16, 0.69 + 0.32), damage_bonus: 0.0,
+    },
     // Patrol Song's own passive is a *second* teamwide dmg bonus (see
     // ``patrolSongTeamDamageBonus``) plus a DEF% bonus and a personal dmg
     // bonus layered onto its plain 82.7% DEF% substat.
@@ -102,7 +108,7 @@ export class Albedo extends Character {
     },
   };
 
-  static WEAPON_DEFAULT_REFINEMENT = { 'Harbinger of Dawn': 5, 'Cinnabar Spindle': 5, 'Patrol Song': 1, Uraku: 1 };
+  static WEAPON_DEFAULT_REFINEMENT = { 'Harbinger of Dawn': 5, 'Cinnabar Spindle': 5, 'Flute of Ezpitzal': 5, 'Patrol Song': 1, Uraku: 1 };
 
   /* Patrol Song's rate (per 1000 final DEF) and cap, by refinement. */
   static PATROL_SONG_TEAM_DAMAGE_BONUS_RATE_PER_1000_DEF = refinementScale(0.08, 0.16);
